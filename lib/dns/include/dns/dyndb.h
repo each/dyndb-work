@@ -15,60 +15,54 @@
  */
 
 
-#ifndef DYNAMIC_DB_H
-#define DYNAMIC_DB_H
+#ifndef DNS_DYNDB_H
+#define DNS_DYNDB_H
 
 #include <isc/types.h>
 
 #include <dns/types.h>
 
+ISC_LANG_BEGINDECLS
+
+struct dns_dyndbctx {
+	unsigned int	magic;
+	isc_mem_t	*mctx;
+	dns_view_t	*view;
+	dns_zonemgr_t	*zmgr;
+	isc_task_t	*task;
+	isc_timermgr_t	*timermgr;
+};
+
+#define DNS_DYNDBCTX_MAGIC	ISC_MAGIC('D', 'd', 'b', 'c')
+#define DNS_DYNDBCTX_VALID(d)	ISC_MAGIC_VALID(d, DNS_DYNDBCTX_MAGIC)
+
+typedef isc_result_t (*dns_dyndb_register_t)(isc_mem_t *mctx,
+					     const char *name,
+					     const char * const *argv,
+					     const dns_dyndbctx_t *dctx);
+typedef void (*dns_dyndb_destroy_t)(void);
+
 /*
  * TODO:
- * Reformat the prototypes.
  * Add annotated comments.
  */
 
 isc_result_t
 dns_dyndb_load(const char *libname, const char *name,
 	       isc_mem_t *mctx, const char * const *argv,
-	       const dns_dyndb_arguments_t *dyndb_args);
+	       const dns_dyndbctx_t *dctx);
 
 void
 dns_dyndb_cleanup(isc_boolean_t exiting);
 
-dns_dyndb_arguments_t *
-dns_dyndb_arguments_create(isc_mem_t *mctx);
-
-void
-dns_dyndb_arguments_destroy(isc_mem_t *mctx, dns_dyndb_arguments_t **args);
-
-void
-dns_dyndb_set_view(dns_dyndb_arguments_t *args, dns_view_t *view);
-
-dns_view_t *
-dns_dyndb_get_view(dns_dyndb_arguments_t *args);
-
-void
-dns_dyndb_set_zonemgr(dns_dyndb_arguments_t *args, dns_zonemgr_t *zmgr);
-dns_zonemgr_t *
-dns_dyndb_get_zonemgr(dns_dyndb_arguments_t *args);
-
-void
-dns_dyndb_set_task(dns_dyndb_arguments_t *args, isc_task_t *task);
-isc_task_t *
-dns_dyndb_get_task(dns_dyndb_arguments_t *args);
-
-void
-dns_dyndb_set_timermgr(dns_dyndb_arguments_t *args,
-			    isc_timermgr_t *timermgr);
-isc_timermgr_t *
-dns_dyndb_get_timermgr(dns_dyndb_arguments_t *args);
-
-void
-dynamic_driver_destroy(void);
-
 isc_result_t
-dynamic_driver_init(isc_mem_t *mctx, const char *name,
-		    const char * const *argv,
-		    dns_dyndb_arguments_t *dyndb_args);
-#endif
+dns_dyndb_createctx(isc_mem_t *mctx, dns_view_t *view,
+		    dns_zonemgr_t *zmgr, isc_task_t *task,
+		    isc_timermgr_t *tmgr, dns_dyndbctx_t **dctxp);
+
+void
+dns_dyndb_destroyctx(dns_dyndbctx_t **dctxp);
+
+ISC_LANG_ENDDECLS
+
+#endif /* DNS_DYNDB_H */

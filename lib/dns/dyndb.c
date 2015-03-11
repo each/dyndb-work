@@ -27,7 +27,7 @@
 #include <isc/types.h>
 #include <isc/util.h>
 
-#include <dns/dynamic_db.h>
+#include <dns/dyndb.h>
 #include <dns/log.h>
 #include <dns/types.h>
 #include <dns/view.h>
@@ -45,26 +45,13 @@
 	} while (0)
 
 
-typedef isc_result_t (*register_func_t)(isc_mem_t *mctx, const char *name,
-				const char * const *argv,
-				const dns_dyndb_arguments_t *dyndb_args);
-typedef void (*destroy_func_t)(void);
-
 typedef struct dyndb_implementation dyndb_implementation_t;
-
 struct dyndb_implementation {
 	isc_mem_t			*mctx;
 	void				*handle;
-	register_func_t			register_function;
-	destroy_func_t			destroy_function;
+	dns_dyndb_register_t		register_func;
+	dns_dyndb_destroy_t		destroy_func;
 	LINK(dyndb_implementation_t)	link;
-};
-
-struct dns_dyndb_arguments {
-	dns_view_t	*view;
-	dns_zonemgr_t	*zmgr;
-	isc_task_t	*task;
-	isc_timermgr_t	*timermgr;
 };
 
 /* List of implementations. Locked by dyndb_lock. */
@@ -109,7 +96,7 @@ load_symbol(void *handle, const char *symbol_name, void **symbolp) {
 
 static isc_result_t
 load_library(isc_mem_t *mctx, const char *filename,
-	     const dns_dyndb_arguments_t *args,
+	     const dns_dyndbctx_t *args,
 	     dyndb_implementation_t **impp)
 {
 	isc_result_t result;
@@ -118,8 +105,8 @@ load_library(isc_mem_t *mctx, const char *filename,
 	isc_region_t module_region;
 	void *handle = NULL;
 	dyndb_implementation_t *imp;
-	register_func_t register_function = NULL;
-	destroy_func_t destroy_function = NULL;
+	dns_dyndb_register_t register_func = NULL;
+	dns_dyndb_destroy_t destroy_func = NULL;
 
 	REQUIRE(args != NULL);
 	REQUIRE(impp != NULL && *impp == NULL);
@@ -153,9 +140,9 @@ load_library(isc_mem_t *mctx, const char *filename,
 	dlerror();
 
 	CHECK(load_symbol(handle, "dynamic_driver_init",
-			  (void **)&register_function));
+			  (void **)&register_func));
 	CHECK(load_symbol(handle, "dynamic_driver_destroy",
-			  (void **)&destroy_function));
+			  (void **)&destroy_func));
 
 	imp = isc_mem_get(mctx, sizeof(dyndb_implementation_t));
 	if (imp == NULL) {
@@ -166,8 +153,8 @@ load_library(isc_mem_t *mctx, const char *filename,
 	imp->mctx = NULL;
 	isc_mem_attach(mctx, &imp->mctx);
 	imp->handle = handle;
-	imp->register_function = register_function;
-	imp->destroy_function = destroy_function;
+	imp->register_func = register_func;
+	imp->destroy_func = destroy_func;
 	INIT_LINK(imp, link);
 
 	*impp = imp;
@@ -227,15 +214,17 @@ unload_library(dyndb_implementation_t **impp)
 isc_result_t
 dns_dyndb_load(const char *libname, const char *name,
 	       isc_mem_t *mctx, const char * const *argv,
-	       const dns_dyndb_arguments_t *dyndb_args)
+	       const dns_dyndbctx_t *dctx)
 {
 	isc_result_t result;
 	dyndb_implementation_t *implementation = NULL;
 
+	REQUIRE(DNS_DYNDBCTX_VALID(dctx));
+
 	RUNTIME_CHECK(isc_once_do(&once, dyndb_initialize) == ISC_R_SUCCESS);
 
-	CHECK(load_library(mctx, libname, dyndb_args, &implementation));
-	CHECK(implementation->register_function(mctx, name, argv, dyndb_args));
+	CHECK(load_library(mctx, libname, dctx, &implementation));
+	CHECK(implementation->register_func(mctx, name, argv, dctx));
 
 	LOCK(&dyndb_lock);
 	APPEND(dyndb_implementations, implementation, link);
@@ -262,7 +251,7 @@ dns_dyndb_cleanup(isc_boolean_t exiting) {
 	while (elem != NULL) {
 		prev = PREV(elem, link);
 		UNLINK(dyndb_implementations, elem, link);
-		elem->destroy_function();
+		elem->destroy_func();
 		unload_library(&elem);
 		elem = prev;
 	}
@@ -272,98 +261,55 @@ dns_dyndb_cleanup(isc_boolean_t exiting) {
 		isc_mutex_destroy(&dyndb_lock);
 }
 
-dns_dyndb_arguments_t *
-dns_dyndb_arguments_create(isc_mem_t *mctx) {
-	dns_dyndb_arguments_t *args;
+isc_result_t
+dns_dyndb_createctx(isc_mem_t *mctx, dns_view_t *view,
+		    dns_zonemgr_t *zmgr, isc_task_t *task,
+		    isc_timermgr_t *tmgr, dns_dyndbctx_t **dctxp) {
+	dns_dyndbctx_t *dctx;
 
-	args = isc_mem_get(mctx, sizeof(*args));
-	if (args != NULL)
-		memset(args, 0, sizeof(*args));
+	REQUIRE(dctxp != NULL && *dctxp == NULL);
 
-	return (args);
+	dctx = isc_mem_get(mctx, sizeof(*dctx));
+	if (dctx == NULL)
+		return (ISC_R_NOMEMORY);
+
+	memset(dctx, 0, sizeof(*dctx));
+	if (view != NULL)
+		dns_view_attach(view, &dctx->view);
+	if (zmgr != NULL)
+		dns_zonemgr_attach(zmgr, &dctx->zmgr);
+	if (task != NULL)
+		isc_task_attach(task, &dctx->task);
+	dctx->timermgr = tmgr;
+	isc_mem_attach(mctx, &dctx->mctx);
+	dctx->magic = DNS_DYNDBCTX_MAGIC;
+
+	*dctxp = dctx;
+
+	return (ISC_R_SUCCESS);
 }
 
 void
-dns_dyndb_arguments_destroy(isc_mem_t *mctx, dns_dyndb_arguments_t **argsp) {
-	dns_dyndb_arguments_t *args;
+dns_dyndb_destroyctx(dns_dyndbctx_t **dctxp) {
+	dns_dyndbctx_t *dctx;
 
-	REQUIRE(argsp != NULL);
+	REQUIRE(dctxp != NULL && DNS_DYNDBCTX_VALID(*dctxp));
 
-	args = *argsp;
-	if (args == NULL)
+	dctx = *dctxp;
+	if (dctxp == NULL)
 		return;
 
-	dns_dyndb_set_view(args, NULL);
-	dns_dyndb_set_zonemgr(args, NULL);
-	dns_dyndb_set_task(args, NULL);
-	dns_dyndb_set_timermgr(args, NULL);
+	dctx->magic = 0;
 
-	isc_mem_put(mctx, args, sizeof(*args));
+	if (dctx->view != NULL)
+		dns_view_detach(&dctx->view);
+	if (dctx->zmgr != NULL)
+		dns_zonemgr_detach(&dctx->zmgr);
+	if (dctx->task != NULL)
+		isc_task_detach(&dctx->task);
+	dctx->timermgr = NULL;
 
-	*argsp = NULL;
-}
+	isc_mem_putanddetach(&dctx->mctx, dctx, sizeof(*dctx));
 
-void
-dns_dyndb_set_view(dns_dyndb_arguments_t *args, dns_view_t *view) {
-	REQUIRE(args != NULL);
-
-	if (args->view != NULL)
-		dns_view_detach(&args->view);
-	if (view != NULL)
-		dns_view_attach(view, &args->view);
-}
-
-dns_view_t *
-dns_dyndb_get_view(dns_dyndb_arguments_t *args) {
-	REQUIRE(args != NULL);
-
-	return (args->view);
-}
-
-void
-dns_dyndb_set_zonemgr(dns_dyndb_arguments_t *args, dns_zonemgr_t *zmgr) {
-	REQUIRE(args != NULL);
-
-	if (args->zmgr != NULL)
-		dns_zonemgr_detach(&args->zmgr);
-	if (zmgr != NULL)
-		dns_zonemgr_attach(zmgr, &args->zmgr);
-}
-
-dns_zonemgr_t *
-dns_dyndb_get_zonemgr(dns_dyndb_arguments_t *args) {
-	REQUIRE(args != NULL);
-
-	return (args->zmgr);
-}
-
-void
-dns_dyndb_set_task(dns_dyndb_arguments_t *args, isc_task_t *task) {
-	REQUIRE(args != NULL);
-
-	if (args->task != NULL)
-		isc_task_detach(&args->task);
-	if (task != NULL)
-		isc_task_attach(task, &args->task);
-}
-
-isc_task_t *
-dns_dyndb_get_task(dns_dyndb_arguments_t *args) {
-	REQUIRE(args != NULL);
-
-	return (args->task);
-}
-
-void
-dns_dyndb_set_timermgr(dns_dyndb_arguments_t *args, isc_timermgr_t *timermgr) {
-	REQUIRE(args != NULL);
-
-	args->timermgr = timermgr;
-}
-
-isc_timermgr_t *
-dns_dyndb_get_timermgr(dns_dyndb_arguments_t *args) {
-	REQUIRE(args != NULL);
-
-	return (args->timermgr);
+	*dctxp = NULL;
 }

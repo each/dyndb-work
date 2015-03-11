@@ -71,7 +71,7 @@
 #include <dns/dispatch.h>
 #include <dns/dlz.h>
 #include <dns/dns64.h>
-#include <dns/dynamic_db.h>
+#include <dns/dyndb.h>
 #include <dns/forward.h>
 #include <dns/journal.h>
 #include <dns/keytable.h>
@@ -1346,7 +1346,7 @@ configure_peer(const cfg_obj_t *cpeer, isc_mem_t *mctx, dns_peer_t **peerp) {
 
 static isc_result_t
 configure_dyndb(const cfg_obj_t *dyndb, isc_mem_t *mctx,
-		const dns_dyndb_arguments_t *dyndb_args)
+		const dns_dyndbctx_t *dctx)
 {
 	isc_result_t result;
 	const cfg_obj_t *obj;
@@ -1402,7 +1402,7 @@ configure_dyndb(const cfg_obj_t *dyndb, isc_mem_t *mctx,
 	REQUIRE(i < len);
 	argv[i] = NULL;
 
-	CHECK(dns_dyndb_load(libname, name, mctx, argv, dyndb_args));
+	CHECK(dns_dyndb_load(libname, name, mctx, argv, dctx));
 
 cleanup:
 	if (result != ISC_R_SUCCESS)
@@ -2489,7 +2489,7 @@ configure_view(dns_view_t *view, dns_viewlist_t *viewlist,
 	ns_cfgctx_t *nzctx;
 	isc_boolean_t old_rpz_ok = ISC_FALSE;
 	isc_dscp_t dscp4 = -1, dscp6 = -1;
-	dns_dyndb_arguments_t *args = NULL;
+	dns_dyndbctx_t *dctx = NULL;
 
 	REQUIRE(DNS_VIEW_VALID(view));
 
@@ -3753,18 +3753,12 @@ configure_view(dns_view_t *view, dns_viewlist_t *viewlist,
 		(void)cfg_map_get(config, "dynamic-db", &dyndb_list);
 	element = cfg_list_first(dyndb_list);
 	if (element != NULL) {
-		args = dns_dyndb_arguments_create(mctx);
-		if (args == NULL) {
-			result = ISC_R_NOMEMORY;
-			goto cleanup;
-		}
-		dns_dyndb_set_view(args, view);
-		dns_dyndb_set_zonemgr(args, ns_g_server->zonemgr);
-		dns_dyndb_set_task(args, ns_g_server->task);
-		dns_dyndb_set_timermgr(args, ns_g_timermgr);
+		CHECK(dns_dyndb_createctx(mctx, view, ns_g_server->zonemgr,
+					  ns_g_server->task,
+					  ns_g_timermgr, &dctx));
 		while (element != NULL) {
 			obj = cfg_listelt_value(element);
-			CHECK(configure_dyndb(obj, mctx, args));
+			CHECK(configure_dyndb(obj, mctx, dctx));
 			element = cfg_list_next(element);
 		}
 	}
@@ -3953,8 +3947,8 @@ configure_view(dns_view_t *view, dns_viewlist_t *viewlist,
 
 	if (cache != NULL)
 		dns_cache_detach(&cache);
-	if (args != NULL)
-		dns_dyndb_arguments_destroy(mctx, &args);
+	if (dctx != NULL)
+		dns_dyndb_destroyctx(&dctx);
 
 	return (result);
 }

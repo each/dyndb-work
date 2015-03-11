@@ -6,7 +6,7 @@
 
 #include <isc/util.h>
 
-#include <dns/dynamic_db.h>
+#include <dns/dyndb.h>
 #include <dns/view.h>
 #include <dns/zone.h>
 

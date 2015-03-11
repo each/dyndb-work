@@ -31,7 +31,7 @@ typedef struct sample_instance sample_instance_t;
 
 isc_result_t
 new_sample_instance(isc_mem_t *mctx, const char *db_name,
-		  const char * const *argv, dns_dyndb_arguments_t *dyndb_args,
+		  const char * const *argv, dns_dyndbctx_t *dctx,
 		  sample_instance_t **sample_instp);
 
 isc_result_t

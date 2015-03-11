@@ -43,7 +43,7 @@
 #include <isccc/result.h>
 
 #include <dns/dispatch.h>
-#include <dns/dynamic_db.h>
+#include <dns/dyndb.h>
 #include <dns/name.h>
 #include <dns/result.h>
 #include <dns/view.h>

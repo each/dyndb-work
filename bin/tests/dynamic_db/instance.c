@@ -10,7 +10,7 @@
 
 #include <isc/util.h>
 
-#include <dns/dynamic_db.h>
+#include <dns/dyndb.h>
 #include <dns/view.h>
 #include <dns/zone.h>
 
@@ -66,7 +66,7 @@ cleanup:
  */
 isc_result_t
 new_sample_instance(isc_mem_t *mctx, const char *db_name,
-		  const char * const *argv, dns_dyndb_arguments_t *dyndb_args,
+		  const char * const *argv, dns_dyndbctx_t *dctx,
 		  sample_instance_t **sample_instp)
 {
 	isc_result_t result;
@@ -85,9 +85,9 @@ new_sample_instance(isc_mem_t *mctx, const char *db_name,
 	CHECK(parse_params(mctx, argv, &inst->zone1_name, &inst->zone2_name));
 
 	inst->db_name = db_name;
-	inst->view = dns_dyndb_get_view(dyndb_args);
-	inst->zmgr = dns_dyndb_get_zonemgr(dyndb_args);
-	inst->task = dns_dyndb_get_task(dyndb_args);
+	inst->view = dctx->view;
+	inst->zmgr = dctx->zmgr;
+	inst->task = dctx->task;
 
 	*sample_instp = inst;
 	result = ISC_R_SUCCESS;

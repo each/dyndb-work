@@ -19,7 +19,7 @@
 #include <isc/util.h>
 
 #include <dns/db.h>
-#include <dns/dynamic_db.h>
+#include <dns/dyndb.h>
 #include <dns/types.h>
 
 #include "db.h"
@@ -28,6 +28,9 @@
 
 static dns_dbimplementation_t *sampledb_imp;
 const char *impname = "dynamic-sample";
+
+dns_dyndb_destroy_t driver_destroy;
+dns_dyndb_register_t driver_init;
 
 /*
  * Driver init is is called once during startup and then on every reload.
@@ -49,15 +52,15 @@ const char *impname = "dynamic-sample";
  *                 argv[1] = "param2";
  */
 isc_result_t
-dynamic_driver_init(isc_mem_t *mctx, const char *name, const char * const *argv,
-		    dns_dyndb_arguments_t *dyndb_args)
+dynamic_driver_init(isc_mem_t *mctx, const char *name,
+		    const char * const *argv, dns_dyndbctx_t *dctx)
 {
 	dns_dbimplementation_t *sampledb_imp_new = NULL;
 	isc_result_t result;
 
 	REQUIRE(name != NULL);
 	REQUIRE(argv != NULL);
-	REQUIRE(dyndb_args != NULL);
+	REQUIRE(dctx != NULL);
 
 	isc_lib_register();
 	isc_hash_create(mctx, NULL, DNS_NAME_MAXWIRE);
@@ -73,7 +76,7 @@ dynamic_driver_init(isc_mem_t *mctx, const char *name, const char * const *argv,
 		sampledb_imp = sampledb_imp_new;
 
 	/* Finally, create the instance. */
-	result = manager_create_db_instance(mctx, name, argv, dyndb_args);
+	result = manager_create_db_instance(mctx, name, argv, dctx);
 
 	return (result);
 }

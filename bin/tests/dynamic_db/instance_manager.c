@@ -15,7 +15,7 @@
 #include <isc/boolean.h>
 #include <isc/util.h>
 
-#include <dns/dynamic_db.h>
+#include <dns/dyndb.h>
 #include <dns/view.h>
 #include <dns/zone.h>
 
@@ -102,13 +102,13 @@ destroy_db_instance(db_instance_t **db_instp) {
 isc_result_t
 manager_create_db_instance(isc_mem_t *mctx, const char *name,
 			   const char * const *argv,
-			   dns_dyndb_arguments_t *dyndb_args)
+			   dns_dyndbctx_t *dctx)
 {
 	isc_result_t result;
 	db_instance_t *db_inst = NULL;
 
 	REQUIRE(name != NULL);
-	REQUIRE(dyndb_args != NULL);
+	REQUIRE(dctx != NULL);
 
 	isc_once_do(&initialize_once, initialize_manager);
 
@@ -124,7 +124,7 @@ manager_create_db_instance(isc_mem_t *mctx, const char *name,
 
 	isc_mem_attach(mctx, &db_inst->mctx);
 	CHECKED_MEM_STRDUP(mctx, name, db_inst->name);
-	CHECK(new_sample_instance(mctx, db_inst->name, argv, dyndb_args,
+	CHECK(new_sample_instance(mctx, db_inst->name, argv, dctx,
 				  &db_inst->inst));
 
 	/*
