@@ -168,6 +168,7 @@ isc_buffer_reserve
 isc_bufferlist_availablecount
 isc_bufferlist_usedcount
 isc_commandline_parse
+isc_commandline_strtoargv
 isc_condition_broadcast
 isc_condition_destroy
 isc_condition_init

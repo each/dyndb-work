@@ -7,6 +7,8 @@
  * Copyright (C) 2009-2015  Red Hat ; see COPYING for license
  */
 
+#include <config.h>
+
 #include <isc/mem.h>
 #include <isc/once.h>
 #include <isc/result.h>
@@ -101,8 +103,8 @@ destroy_db_instance(db_instance_t **db_instp) {
  */
 isc_result_t
 manager_create_db_instance(isc_mem_t *mctx, const char *name,
-			   const char * const *argv,
-			   dns_dyndbctx_t *dctx)
+			   int argc, char **argv,
+			   const dns_dyndbctx_t *dctx)
 {
 	isc_result_t result;
 	db_instance_t *db_inst = NULL;
@@ -124,7 +126,7 @@ manager_create_db_instance(isc_mem_t *mctx, const char *name,
 
 	isc_mem_attach(mctx, &db_inst->mctx);
 	CHECKED_MEM_STRDUP(mctx, name, db_inst->name);
-	CHECK(new_sample_instance(mctx, db_inst->name, argv, dctx,
+	CHECK(new_sample_instance(mctx, db_inst->name, argc, argv, dctx,
 				  &db_inst->inst));
 
 	/*

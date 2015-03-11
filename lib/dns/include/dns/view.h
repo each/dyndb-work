@@ -212,8 +212,6 @@ struct dns_view {
 	void				(*cfg_destroy)(void **);
 
 	unsigned char			secret[32];	/* Client secret */
-
-	const char			*dyndb_libdir;	/* dynamic_db libs */
 };
 
 #define DNS_VIEW_MAGIC			ISC_MAGIC('V','i','e','w')

@@ -2,6 +2,8 @@
  * Copyright (C) 2014-2015  Red Hat ; see COPYING for license
  */
 
+#include <config.h>
+
 #include <isc/task.h>
 #include <isc/util.h>
 

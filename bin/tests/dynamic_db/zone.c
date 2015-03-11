@@ -4,6 +4,8 @@
  * Copyright (C) 2009-2015  Red Hat ; see COPYING for license
  */
 
+#include <config.h>
+
 #include <isc/util.h>
 
 #include <dns/dyndb.h>

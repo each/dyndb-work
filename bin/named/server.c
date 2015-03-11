@@ -28,6 +28,7 @@
 
 #include <isc/app.h>
 #include <isc/base64.h>
+#include <isc/commandline.h>
 #include <isc/dir.h>
 #include <isc/entropy.h>
 #include <isc/file.h>
@@ -1350,59 +1351,39 @@ configure_dyndb(const cfg_obj_t *dyndb, isc_mem_t *mctx,
 {
 	isc_result_t result;
 	const cfg_obj_t *obj;
-	const cfg_obj_t *dyndb_opts;
-	const cfg_listelt_t *element;
 	const char *name;
-	const char *libname;
-	const char **argv = NULL;
-	unsigned int i;
-	unsigned int len;
+	unsigned int argc;
+	char **argv = NULL;
 
 	/* Get the name of the database. */
-	obj = cfg_tuple_get(dyndb, "name");
+	obj = cfg_map_getname(dyndb);
 	name = cfg_obj_asstring(obj);
-
-	/* Get dynamic db configuration. */
-	dyndb_opts = cfg_tuple_get(dyndb, "options");
 
 	/* Get library name. */
 	obj = NULL;
-	CHECK(cfg_map_get(dyndb_opts, "library", &obj));
-	libname = cfg_obj_asstring(obj);
+	CHECK(cfg_map_get(dyndb, "database", &obj));
 
-	/* Create a list of arguments. */
-	obj = NULL;
-	result = cfg_map_get(dyndb_opts, "arg", &obj);
-	if (result == ISC_R_NOTFOUND)
-		len = 0;
-	else if (result == ISC_R_SUCCESS)
-		len = cfg_list_length(obj, isc_boolean_false);
-	else
-		goto cleanup;
+	if (obj != NULL) {
+		char *s = isc_mem_strdup(mctx, cfg_obj_asstring(obj));
 
-	/* Account for the last terminating NULL. */
-	len++;
+		if (s == NULL) {
+			result = ISC_R_NOMEMORY;
+			goto cleanup;
+		}
 
-	argv = isc_mem_allocate(mctx, len * sizeof(const char *));
-	if (argv == NULL) {
-		result = ISC_R_NOMEMORY;
-		goto cleanup;
+		result = isc_commandline_strtoargv(mctx, s, &argc, &argv, 0);
+		if (result != ISC_R_SUCCESS) {
+			isc_mem_free(mctx, s);
+			goto cleanup;
+		}
+
+		result = dns_dyndb_load(argv[0], name, mctx,
+					argc, argv, dctx);
+		isc_mem_free(mctx, s);
+		isc_mem_put(mctx, argv, argc * sizeof(*argv));
+		if (result != ISC_R_SUCCESS)
+			goto cleanup;
 	}
-
-	for (element = cfg_list_first(obj), i = 0;
-	     element != NULL;
-	     element = cfg_list_next(element), i++)
-	{
-		REQUIRE(i < len);
-
-		obj = cfg_listelt_value(element);
-		argv[i] = cfg_obj_asstring(obj);
-	}
-
-	REQUIRE(i < len);
-	argv[i] = NULL;
-
-	CHECK(dns_dyndb_load(libname, name, mctx, argv, dctx));
 
 cleanup:
 	if (result != ISC_R_SUCCESS)
@@ -2688,7 +2669,8 @@ configure_view(dns_view_t *view, dns_viewlist_t *viewlist,
 				goto cleanup;
 			}
 
-			result = dns_dlzstrtoargv(mctx, s, &dlzargc, &dlzargv);
+			result = isc_commandline_strtoargv(mctx, s, &dlzargc,
+							   &dlzargv, 0);
 			if (result != ISC_R_SUCCESS) {
 				isc_mem_free(mctx, s);
 				goto cleanup;
@@ -3739,28 +3721,27 @@ configure_view(dns_view_t *view, dns_viewlist_t *viewlist,
 		dns_view_setrootdelonly(view, ISC_FALSE);
 
 	/*
-	 * Configure dynamic databases.
+	 * Load DynDB modules.
 	 */
-	obj = NULL;
-	result = ns_config_get(maps, "dynamic-db-libdir", &obj);
-	if (result == ISC_R_SUCCESS)
-		view->dyndb_libdir = cfg_obj_asstring(obj);
-
 	dyndb_list = NULL;
 	if (voptions != NULL)
-		(void)cfg_map_get(voptions, "dynamic-db", &dyndb_list);
+		(void)cfg_map_get(voptions, "dyndb", &dyndb_list);
 	else
-		(void)cfg_map_get(config, "dynamic-db", &dyndb_list);
-	element = cfg_list_first(dyndb_list);
-	if (element != NULL) {
-		CHECK(dns_dyndb_createctx(mctx, view, ns_g_server->zonemgr,
-					  ns_g_server->task,
-					  ns_g_timermgr, &dctx));
-		while (element != NULL) {
-			obj = cfg_listelt_value(element);
-			CHECK(configure_dyndb(obj, mctx, dctx));
-			element = cfg_list_next(element);
-		}
+		(void)cfg_map_get(config, "dyndb", &dyndb_list);
+
+	for (element = cfg_list_first(dyndb_list);
+	     element != NULL;
+	     element = cfg_list_next(element))
+	{
+		const cfg_obj_t *dyndb = cfg_listelt_value(element);
+
+		if (dctx == NULL)
+			CHECK(dns_dyndb_createctx(mctx, view,
+						  ns_g_server->zonemgr,
+						  ns_g_server->task,
+						  ns_g_timermgr, &dctx));
+
+		CHECK(configure_dyndb(dyndb, mctx, dctx));
 	}
 
 	/*

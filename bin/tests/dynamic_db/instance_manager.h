@@ -17,8 +17,8 @@ void destroy_manager(void);
 
 isc_result_t
 manager_create_db_instance(isc_mem_t *mctx, const char *name,
-			   const char * const *argv,
-			   dns_dyndbctx_t *dctx);
+			   int argc, char **argv,
+			   const dns_dyndbctx_t *dctx);
 
 isc_result_t
 manager_get_sample_instance(const char *name, sample_instance_t **inst);

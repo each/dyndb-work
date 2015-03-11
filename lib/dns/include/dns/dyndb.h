@@ -36,11 +36,12 @@ struct dns_dyndbctx {
 #define DNS_DYNDBCTX_MAGIC	ISC_MAGIC('D', 'd', 'b', 'c')
 #define DNS_DYNDBCTX_VALID(d)	ISC_MAGIC_VALID(d, DNS_DYNDBCTX_MAGIC)
 
-typedef isc_result_t (*dns_dyndb_register_t)(isc_mem_t *mctx,
-					     const char *name,
-					     const char * const *argv,
-					     const dns_dyndbctx_t *dctx);
-typedef void (*dns_dyndb_destroy_t)(void);
+typedef isc_result_t dns_dyndb_register_t(isc_mem_t *mctx,
+					  const char *name,
+					  unsigned int argc,
+					  char **argv,
+					  const dns_dyndbctx_t *dctx);
+typedef void dns_dyndb_destroy_t(void);
 
 /*
  * TODO:
@@ -48,8 +49,8 @@ typedef void (*dns_dyndb_destroy_t)(void);
  */
 
 isc_result_t
-dns_dyndb_load(const char *libname, const char *name,
-	       isc_mem_t *mctx, const char * const *argv,
+dns_dyndb_load(const char *libname, const char *name, isc_mem_t *mctx,
+	       unsigned int argc, char **argv,
 	       const dns_dyndbctx_t *dctx);
 
 void

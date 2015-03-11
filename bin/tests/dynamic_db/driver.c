@@ -1,8 +1,8 @@
 /*
  * Driver API implementation and main entry point for BIND.
  *
- * BIND calls dynamic_driver_init() during startup
- * and dynamic_driver_destroy() during shutdown.
+ * BIND calls driver_init() during startup
+ * and driver_destroy() during shutdown.
  *
  * It is completely up to implementation what to do.
  *
@@ -11,8 +11,10 @@
  * if they reference the same driver/library. It is up to driver implementation
  * to detect and catch this situation if it is undesirable.
  *
- * Copyright (C) 2009--2015  Red Hat ; see COPYING for license
+ * Copyright (C) 2009-2015  Red Hat ; see COPYING for license
  */
+
+#include <config.h>
 
 #include <isc/hash.h>
 #include <isc/lib.h>
@@ -36,24 +38,26 @@ dns_dyndb_register_t driver_init;
  * Driver init is is called once during startup and then on every reload.
  *
  * @code
- * dynamic-db "example-name" {
- * 	arg "sample.so";
- * 	arg "param1";
- * 	arg "param2";
+ * dyndb "example-name" {
+ * 	database "sample.so param1 param2";
  * };
  * @endcode
  * 
  * @param[in] name User-defined string from dynamic-db "name" {}; definition
  *                 in named.conf.
  *                 The example above will have name = "example-name".
+ * @param[in] argc Number of arg parameters
+ *                 definition. The example above will have
+ *                 argc = 3;
  * @param[in] argv User-defined strings from arg parameters in dynamic-db
  *                 definition. The example above will have
- *                 argv[0] = "param1";
- *                 argv[1] = "param2";
+ *                 argv[0] = "sample.so";
+ *                 argv[1] = "param1";
+ *                 argv[2] = "param2";
  */
 isc_result_t
-dynamic_driver_init(isc_mem_t *mctx, const char *name,
-		    const char * const *argv, dns_dyndbctx_t *dctx)
+driver_init(isc_mem_t *mctx, const char *name,
+	    unsigned int argc, char **argv, const dns_dyndbctx_t *dctx)
 {
 	dns_dbimplementation_t *sampledb_imp_new = NULL;
 	isc_result_t result;
@@ -76,7 +80,7 @@ dynamic_driver_init(isc_mem_t *mctx, const char *name,
 		sampledb_imp = sampledb_imp_new;
 
 	/* Finally, create the instance. */
-	result = manager_create_db_instance(mctx, name, argv, dctx);
+	result = manager_create_db_instance(mctx, name, argc, argv, dctx);
 
 	return (result);
 }
@@ -89,7 +93,7 @@ dynamic_driver_init(isc_mem_t *mctx, const char *name,
  * way how to find out for which instance.
  */
 void
-dynamic_driver_destroy(void) {
+driver_destroy(void) {
 	/* Only unregister the implementation if it was registered by us. */
 	if (sampledb_imp != NULL)
 		dns_db_unregister(&sampledb_imp);

@@ -238,7 +238,6 @@ dns_view_create(isc_mem_t *mctx, dns_rdataclass_t rdclass,
 	view->fail_ttl = 0;
 	view->failcache = NULL;
 	dns_badcache_init(view->mctx, DNS_VIEW_FAILCACHESIZE, &view->failcache);
-	view->dyndb_libdir = NULL;
 
 	if (isc_bind9) {
 		result = dns_order_create(view->mctx, &view->order);

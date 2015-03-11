@@ -8,9 +8,13 @@
  * Copyright (C) 2008-2015  Red Hat ; see COPYING for license
  */
 
+#include <config.h>
+
 #include <isc/util.h>
 
 #include <dns/dyndb.h>
+#include <dns/fixedname.h>
+#include <dns/name.h>
 #include <dns/view.h>
 #include <dns/zone.h>
 
@@ -30,29 +34,29 @@
  * @param[out] z2   Zone name from argv[1]
  */
 static isc_result_t
-parse_params(isc_mem_t *mctx, const char * const *argv, dns_name_t *z1,
-	     dns_name_t *z2)
+parse_params(isc_mem_t *mctx, int argc, char **argv,
+	     dns_name_t *z1, dns_name_t *z2)
 {
 	isc_result_t result;
-	int idx;
+	int i;
 
 	REQUIRE(argv != NULL);
 	REQUIRE(z1 != NULL);
 	REQUIRE(z2 != NULL);
 
-	for (idx = 0; argv[idx] != NULL; idx++) {
-		log_info("param: '%s'", argv[idx]);
+	for (i = 0; i < argc; i++) {
+		log_info("param: '%s'", argv[i]);
 	}
-	log_info("number of params: %d", idx);
+	log_info("number of params: %d", i);
 
-	if (idx != 2) {
+	if (argc != 3) {
 		log_error("exactly two parameters "
 			  "(absolute zone names) are required");
 		result = ISC_R_FAILURE;
 		goto cleanup;
 	}
-	CHECK(dns_name_fromstring2(z1, argv[0], dns_rootname, 0, mctx));
-	CHECK(dns_name_fromstring2(z2, argv[1], dns_rootname, 0, mctx));
+	CHECK(dns_name_fromstring2(z1, argv[1], dns_rootname, 0, mctx));
+	CHECK(dns_name_fromstring2(z2, argv[2], dns_rootname, 0, mctx));
 
 	result = ISC_R_SUCCESS;
 
@@ -66,8 +70,8 @@ cleanup:
  */
 isc_result_t
 new_sample_instance(isc_mem_t *mctx, const char *db_name,
-		  const char * const *argv, dns_dyndbctx_t *dctx,
-		  sample_instance_t **sample_instp)
+		    int argc, char **argv, const dns_dyndbctx_t *dctx,
+		    sample_instance_t **sample_instp)
 {
 	isc_result_t result;
 	sample_instance_t *inst = NULL;
@@ -79,10 +83,15 @@ new_sample_instance(isc_mem_t *mctx, const char *db_name,
 	CHECKED_MEM_GET_PTR(mctx, inst);
 	ZERO_PTR(inst);
 	isc_mem_attach(mctx, &inst->mctx);
-	dns_name_init(&inst->zone1_name, NULL);
-	dns_name_init(&inst->zone2_name, NULL);
 
-	CHECK(parse_params(mctx, argv, &inst->zone1_name, &inst->zone2_name));
+	dns_fixedname_init(&inst->zone1_fn);
+	inst->zone1_name = dns_fixedname_name(&inst->zone1_fn);
+
+	dns_fixedname_init(&inst->zone2_fn);
+	inst->zone2_name = dns_fixedname_name(&inst->zone2_fn);
+
+	CHECK(parse_params(mctx, argc, argv,
+			   inst->zone1_name, inst->zone2_name));
 
 	inst->db_name = db_name;
 	inst->view = dctx->view;
@@ -106,10 +115,10 @@ isc_result_t
 load_sample_instance_zones(sample_instance_t *inst) {
 	isc_result_t result;
 
-	CHECK(create_zone(inst, &inst->zone1_name, &inst->zone1));
+	CHECK(create_zone(inst, inst->zone1_name, &inst->zone1));
 	CHECK(activate_zone(inst, inst->zone1));
 
-	CHECK(create_zone(inst, &inst->zone2_name, &inst->zone2));
+	CHECK(create_zone(inst, inst->zone2_name, &inst->zone2));
 	CHECK(activate_zone(inst, inst->zone2));
 
 cleanup:
@@ -117,8 +126,7 @@ cleanup:
 }
 
 void
-destroy_sample_instance(sample_instance_t **instp)
-{
+destroy_sample_instance(sample_instance_t **instp) {
 	sample_instance_t *inst;
 	const char *db_name;
 	REQUIRE(instp != NULL);
@@ -134,9 +142,6 @@ destroy_sample_instance(sample_instance_t **instp)
 		dns_zone_detach(&inst->zone1);
 	if (inst->zone2 != NULL)
 		dns_zone_detach(&inst->zone2);
-
-	dns_name_free(&inst->zone1_name, inst->mctx);
-	dns_name_free(&inst->zone2_name, inst->mctx);
 
 	MEM_PUT_AND_DETACH(inst);
 

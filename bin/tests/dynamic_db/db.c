@@ -10,6 +10,7 @@
  *
  * Copyright (C) 2009-2015  Red Hat ; see COPYING for license
  */
+#include <config.h>
 
 #include <dns/db.h>
 #include <dns/diff.h>

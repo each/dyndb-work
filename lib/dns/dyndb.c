@@ -49,8 +49,8 @@ typedef struct dyndb_implementation dyndb_implementation_t;
 struct dyndb_implementation {
 	isc_mem_t			*mctx;
 	void				*handle;
-	dns_dyndb_register_t		register_func;
-	dns_dyndb_destroy_t		destroy_func;
+	dns_dyndb_register_t		*register_func;
+	dns_dyndb_destroy_t		*destroy_func;
 	LINK(dyndb_implementation_t)	link;
 };
 
@@ -105,8 +105,8 @@ load_library(isc_mem_t *mctx, const char *filename,
 	isc_region_t module_region;
 	void *handle = NULL;
 	dyndb_implementation_t *imp;
-	dns_dyndb_register_t register_func = NULL;
-	dns_dyndb_destroy_t destroy_func = NULL;
+	dns_dyndb_register_t *register_func = NULL;
+	dns_dyndb_destroy_t *destroy_func = NULL;
 
 	REQUIRE(args != NULL);
 	REQUIRE(impp != NULL && *impp == NULL);
@@ -114,16 +114,7 @@ load_library(isc_mem_t *mctx, const char *filename,
 	/* Build up the full path. */
 	module_size = strlen(filename) + 1;
 
-	if (args->view != NULL && args->view->dyndb_libdir != NULL)
-		module_size += strlen(args->view->dyndb_libdir) + 1;
-
 	CHECK(isc_buffer_allocate(mctx, &module_buf, module_size));
-
-	if (args->view != NULL && args->view->dyndb_libdir != NULL) {
-		isc_buffer_putstr(module_buf, args->view->dyndb_libdir);
-		isc_buffer_putstr(module_buf, "/");
-	}
-
 	isc_buffer_putstr(module_buf, filename);
 	isc_buffer_putuint8(module_buf, 0);
 	isc_buffer_region(module_buf, &module_region);
@@ -139,9 +130,9 @@ load_library(isc_mem_t *mctx, const char *filename,
 	}
 	dlerror();
 
-	CHECK(load_symbol(handle, "dynamic_driver_init",
+	CHECK(load_symbol(handle, "driver_init",
 			  (void **)&register_func));
-	CHECK(load_symbol(handle, "dynamic_driver_destroy",
+	CHECK(load_symbol(handle, "driver_destroy",
 			  (void **)&destroy_func));
 
 	imp = isc_mem_get(mctx, sizeof(dyndb_implementation_t));
@@ -212,8 +203,8 @@ unload_library(dyndb_implementation_t **impp)
 #endif	/* HAVE_DLFCN_H */
 
 isc_result_t
-dns_dyndb_load(const char *libname, const char *name,
-	       isc_mem_t *mctx, const char * const *argv,
+dns_dyndb_load(const char *libname, const char *name, isc_mem_t *mctx,
+	       unsigned int argc, char **argv,
 	       const dns_dyndbctx_t *dctx)
 {
 	isc_result_t result;
@@ -224,7 +215,7 @@ dns_dyndb_load(const char *libname, const char *name,
 	RUNTIME_CHECK(isc_once_do(&once, dyndb_initialize) == ISC_R_SUCCESS);
 
 	CHECK(load_library(mctx, libname, dctx, &implementation));
-	CHECK(implementation->register_func(mctx, name, argv, dctx));
+	CHECK(implementation->register_func(mctx, name, argc, argv, dctx));
 
 	LOCK(&dyndb_lock);
 	APPEND(dyndb_implementations, implementation, link);
