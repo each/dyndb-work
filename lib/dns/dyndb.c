@@ -50,8 +50,8 @@
 
 
 typedef isc_result_t (*register_func_t)(isc_mem_t *mctx, const char *name,
-		const char * const *argv,
-		const dns_dyndb_arguments_t *dyndb_args);
+					const char * const *argv,
+					const dns_dyndb_arguments_t *dyndb_args);
 typedef void (*destroy_func_t)(void);
 
 typedef struct dyndb_implementation dyndb_implementation_t;
@@ -73,6 +73,7 @@ struct dns_dyndb_arguments {
 
 /* List of implementations. Locked by dyndb_lock. */
 static LIST(dyndb_implementation_t) dyndb_implementations;
+
 /* Locks dyndb_implementations. */
 static isc_mutex_t dyndb_lock;
 static isc_once_t once = ISC_ONCE_INIT;
@@ -83,11 +84,9 @@ dyndb_initialize(void) {
 	INIT_LIST(dyndb_implementations);
 }
 
-
 #if HAVE_DLFCN_H
 static isc_result_t
-load_symbol(void *handle, const char *symbol_name, void **symbolp)
-{
+load_symbol(void *handle, const char *symbol_name, void **symbolp) {
 	const char *errmsg;
 	void *symbol;
 
@@ -103,17 +102,18 @@ load_symbol(void *handle, const char *symbol_name, void **symbolp)
 			      DNS_LOGMODULE_DYNDB, ISC_LOG_ERROR,
 			      "failed to lookup symbol %s: %s",
 			      symbol_name, errmsg);
-		return ISC_R_FAILURE;
+		return (ISC_R_FAILURE);
 	}
 	dlerror();
 
 	*symbolp = symbol;
 
-	return ISC_R_SUCCESS;
+	return (ISC_R_SUCCESS);
 }
 
 static isc_result_t
-load_library(isc_mem_t *mctx, const char *filename, dyndb_implementation_t **impp)
+load_library(isc_mem_t *mctx, const char *filename,
+	     dyndb_implementation_t **impp)
 {
 	isc_result_t result;
 	size_t module_size;
@@ -171,12 +171,11 @@ cleanup:
 	if (module_buf != NULL)
 		isc_buffer_free(&module_buf);
 
-	return result;
+	return (result);
 }
 
 static void
-unload_library(dyndb_implementation_t **impp)
-{
+unload_library(dyndb_implementation_t **impp) {
 	dyndb_implementation_t *imp;
 
 	REQUIRE(impp != NULL && *impp != NULL);
@@ -187,10 +186,10 @@ unload_library(dyndb_implementation_t **impp)
 
 	*impp = NULL;
 }
-
 #else	/* HAVE_DLFCN_H */
 static isc_result_t
-load_library(isc_mem_t *mctx, const char *filename, dyndb_implementation_t **impp)
+load_library(isc_mem_t *mctx, const char *filename,
+	     dyndb_implementation_t **impp)
 {
 	UNUSED(mctx);
 	UNUSED(filename);
@@ -200,7 +199,7 @@ load_library(isc_mem_t *mctx, const char *filename, dyndb_implementation_t **imp
 		      ISC_LOG_ERROR,
 		      "dynamic database support is not implemented")
 
-	return ISC_R_NOTIMPLEMENTED;
+	return (ISC_R_NOTIMPLEMENTED);
 }
 
 static void
@@ -219,9 +218,9 @@ unload_library(dyndb_implementation_t **impp)
 #endif	/* HAVE_DLFCN_H */
 
 isc_result_t
-dns_dynamic_db_load(const char *libname, const char *name, isc_mem_t *mctx,
-		    const char * const *argv,
-		    const dns_dyndb_arguments_t *dyndb_args)
+dns_dyndb_load(const char *libname, const char *name,
+	       isc_mem_t *mctx, const char * const *argv,
+	       const dns_dyndb_arguments_t *dyndb_args)
 {
 	isc_result_t result;
 	dyndb_implementation_t *implementation = NULL;
@@ -235,18 +234,17 @@ dns_dynamic_db_load(const char *libname, const char *name, isc_mem_t *mctx,
 	APPEND(dyndb_implementations, implementation, link);
 	UNLOCK(&dyndb_lock);
 
-	return ISC_R_SUCCESS;
+	return (ISC_R_SUCCESS);
 
 cleanup:
 	if (implementation != NULL)
 		unload_library(&implementation);
 
-	return result;
+	return (result);
 }
 
 void
-dns_dynamic_db_cleanup(isc_boolean_t exiting)
-{
+dns_dyndb_cleanup(isc_boolean_t exiting) {
 	dyndb_implementation_t *elem;
 	dyndb_implementation_t *prev;
 
@@ -268,20 +266,18 @@ dns_dynamic_db_cleanup(isc_boolean_t exiting)
 }
 
 dns_dyndb_arguments_t *
-dns_dyndb_arguments_create(isc_mem_t *mctx)
-{
+dns_dyndb_arguments_create(isc_mem_t *mctx) {
 	dns_dyndb_arguments_t *args;
 
 	args = isc_mem_get(mctx, sizeof(*args));
 	if (args != NULL)
 		memset(args, 0, sizeof(*args));
 
-	return args;
+	return (args);
 }
 
 void
-dns_dyndb_arguments_destroy(isc_mem_t *mctx, dns_dyndb_arguments_t **argsp)
-{
+dns_dyndb_arguments_destroy(isc_mem_t *mctx, dns_dyndb_arguments_t **argsp) {
 	dns_dyndb_arguments_t *args;
 
 	REQUIRE(argsp != NULL);
@@ -301,8 +297,7 @@ dns_dyndb_arguments_destroy(isc_mem_t *mctx, dns_dyndb_arguments_t **argsp)
 }
 
 void
-dns_dyndb_set_view(dns_dyndb_arguments_t *args, dns_view_t *view)
-{
+dns_dyndb_set_view(dns_dyndb_arguments_t *args, dns_view_t *view) {
 	REQUIRE(args != NULL);
 
 	if (args->view != NULL)
@@ -312,16 +307,14 @@ dns_dyndb_set_view(dns_dyndb_arguments_t *args, dns_view_t *view)
 }
 
 dns_view_t *
-dns_dyndb_get_view(dns_dyndb_arguments_t *args)
-{
+dns_dyndb_get_view(dns_dyndb_arguments_t *args) {
 	REQUIRE(args != NULL);
 
-	return args->view;
+	return (args->view);
 }
 
 void
-dns_dyndb_set_zonemgr(dns_dyndb_arguments_t *args, dns_zonemgr_t *zmgr)
-{
+dns_dyndb_set_zonemgr(dns_dyndb_arguments_t *args, dns_zonemgr_t *zmgr) {
 	REQUIRE(args != NULL);
 
 	if (args->zmgr != NULL)
@@ -331,16 +324,14 @@ dns_dyndb_set_zonemgr(dns_dyndb_arguments_t *args, dns_zonemgr_t *zmgr)
 }
 
 dns_zonemgr_t *
-dns_dyndb_get_zonemgr(dns_dyndb_arguments_t *args)
-{
+dns_dyndb_get_zonemgr(dns_dyndb_arguments_t *args) {
 	REQUIRE(args != NULL);
 
-	return args->zmgr;
+	return (args->zmgr);
 }
 
 void
-dns_dyndb_set_task(dns_dyndb_arguments_t *args, isc_task_t *task)
-{
+dns_dyndb_set_task(dns_dyndb_arguments_t *args, isc_task_t *task) {
 	REQUIRE(args != NULL);
 
 	if (args->task != NULL)
@@ -350,25 +341,22 @@ dns_dyndb_set_task(dns_dyndb_arguments_t *args, isc_task_t *task)
 }
 
 isc_task_t *
-dns_dyndb_get_task(dns_dyndb_arguments_t *args)
-{
+dns_dyndb_get_task(dns_dyndb_arguments_t *args) {
 	REQUIRE(args != NULL);
 
-	return args->task;
+	return (args->task);
 }
 
 void
-dns_dyndb_set_timermgr(dns_dyndb_arguments_t *args, isc_timermgr_t *timermgr)
-{
+dns_dyndb_set_timermgr(dns_dyndb_arguments_t *args, isc_timermgr_t *timermgr) {
 	REQUIRE(args != NULL);
 
 	args->timermgr = timermgr;
 }
 
 isc_timermgr_t *
-dns_dyndb_get_timermgr(dns_dyndb_arguments_t *args)
-{
+dns_dyndb_get_timermgr(dns_dyndb_arguments_t *args) {
 	REQUIRE(args != NULL);
 
-	return args->timermgr;
+	return (args->timermgr);
 }
