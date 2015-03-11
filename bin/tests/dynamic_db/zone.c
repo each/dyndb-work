@@ -1,7 +1,7 @@
-/**
+/*
  * Zone management.
  *
- * Copyright (C) 2009--2015  Red Hat ; see COPYING for license
+ * Copyright (C) 2009-2015  Red Hat ; see COPYING for license
  */
 
 #include <isc/util.h>
@@ -14,10 +14,11 @@
 #include "instance.h"
 #include "lock.h"
 #include "log.h"
+#include "zone.h"
 
 extern const char *impname;
 
-/**
+/*
  * Create a new zone with origin 'name'. The zone stay invisible to clients
  * until it is explicitly added to a view.
  */
@@ -53,7 +54,7 @@ create_zone(sample_instance_t * const inst, dns_name_t * const name,
 	dns_acl_detach(&acl_any);
 
 	*rawp = raw;
-	return ISC_R_SUCCESS;
+	return (ISC_R_SUCCESS);
 
 cleanup:
 	dns_name_format(name, zone_name, DNS_NAME_FORMATSIZE);
@@ -67,16 +68,15 @@ cleanup:
 	if (acl_any != NULL)
 		dns_acl_detach(&acl_any);
 
-	return result;
+	return (result);
 }
 
-/**
+/*
  * Add zone to the view defined in inst->view. This will make the zone visible
  * to clients.
  */
 static isc_result_t
-publish_zone(sample_instance_t *inst, dns_zone_t *zone)
-{
+publish_zone(sample_instance_t *inst, dns_zone_t *zone) {
 	isc_result_t result;
 	isc_boolean_t freeze = ISC_FALSE;
 	dns_zone_t *zone_in_view = NULL;
@@ -99,21 +99,24 @@ publish_zone(sample_instance_t *inst, dns_zone_t *zone)
 			/* Zone is already published in the right view. */
 			CLEANUP_WITH(ISC_R_SUCCESS);
 		} else if (view_in_zone != inst->view) {
-			/* Un-published inactive zone will have
+			/*
+			 * Un-published inactive zone will have
 			 * inst->view in zone but will not be present
-			 * in the view itself. */
-			dns_zone_log(zone, ISC_LOG_ERROR, "zone->view doesn't "
+			 * in the view itself.
+			 */
+			dns_zone_log(zone, ISC_LOG_ERROR,
+				     "zone->view doesn't "
 				     "match data in the view");
 			CLEANUP_WITH(ISC_R_UNEXPECTED);
 		}
 	}
+
 	if (zone_in_view != NULL) {
-		dns_zone_log(zone, ISC_LOG_ERROR, "cannot publish zone: view "
-			     "already contains another zone with this name");
+		dns_zone_log(zone, ISC_LOG_ERROR,
+			     "cannot publish zone: view already "
+			     "contains another zone with this name");
 		CLEANUP_WITH(ISC_R_UNEXPECTED);
-	} /* else if (zone_in_view == NULL &&
-		      (view_in_zone == NULL || view_in_zone == inst->view))
-	     Publish the zone. */
+	}
 
 	run_exclusive_enter(inst, &lock_state);
 	if (inst->view->frozen) {
@@ -131,10 +134,10 @@ cleanup:
 		dns_view_freeze(inst->view);
 	run_exclusive_exit(inst, lock_state);
 
-	return result;
+	return (result);
 }
 
-/**
+/*
  * @warning Never call this on raw part of in-line secure zone, call it only
  * on the secure zone!
  */
@@ -157,10 +160,10 @@ load_zone(dns_zone_t *zone) {
 		dns_zone_notify(zone);
 
 cleanup:
-	return result;
+	return (result);
 }
 
-/**
+/*
  * Add zone to view and call dns_zone_load().
  */
 isc_result_t
@@ -183,5 +186,5 @@ activate_zone(sample_instance_t *inst, dns_zone_t *raw) {
 	CHECK(load_zone(raw));
 
 cleanup:
-	return result;
+	return (result);
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Driver API implementation and main entry point for BIND.
  *
  * BIND calls dynamic_driver_init() during startup
@@ -14,9 +14,12 @@
  * Copyright (C) 2009--2015  Red Hat ; see COPYING for license
  */
 
+#include <isc/hash.h>
+#include <isc/lib.h>
 #include <isc/util.h>
 
 #include <dns/db.h>
+#include <dns/dynamic_db.h>
 #include <dns/types.h>
 
 #include "db.h"
@@ -26,7 +29,7 @@
 static dns_dbimplementation_t *sampledb_imp;
 const char *impname = "dynamic-sample";
 
-/**
+/*
  * Driver init is is called once during startup and then on every reload.
  *
  * @code
@@ -56,23 +59,26 @@ dynamic_driver_init(isc_mem_t *mctx, const char *name, const char * const *argv,
 	REQUIRE(argv != NULL);
 	REQUIRE(dyndb_args != NULL);
 
+	isc_lib_register();
+	isc_hash_create(mctx, NULL, DNS_NAME_MAXWIRE);
+
 	log_info("registering dynamic sample driver for instance '%s'", name);
 
 	/* Register new DNS DB implementation. */
 	result = dns_db_register(impname, create_db, NULL, mctx,
 				 &sampledb_imp_new);
 	if (result != ISC_R_SUCCESS && result != ISC_R_EXISTS)
-		return result;
+		return (result);
 	else if (result == ISC_R_SUCCESS)
 		sampledb_imp = sampledb_imp_new;
 
 	/* Finally, create the instance. */
 	result = manager_create_db_instance(mctx, name, argv, dyndb_args);
 
-	return result;
+	return (result);
 }
 
-/**
+/*
  * Driver destroy is called on every reload and then once during shutdown.
  *
  * @warning
@@ -80,11 +86,11 @@ dynamic_driver_init(isc_mem_t *mctx, const char *name, const char * const *argv,
  * way how to find out for which instance.
  */
 void
-dynamic_driver_destroy(void)
-{
+dynamic_driver_destroy(void) {
 	/* Only unregister the implementation if it was registered by us. */
 	if (sampledb_imp != NULL)
 		dns_db_unregister(&sampledb_imp);
 
 	destroy_manager();
+	isc_hash_destroy();
 }

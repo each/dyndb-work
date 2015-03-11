@@ -3,7 +3,6 @@ of code from ISC BIND 9.10.
 
 Authors listed in alphabetical order:
 Adam Tkac   <atkac@redhat.com>
-ISC (specific names were not listed in server.c, sorry)
 Jiri Kuncar <jkuncar@redhat.com>
 Martin Nagy <mnagy@redhat.com>
 Petr Spacek <pspacek@redhat.com>

@@ -1,11 +1,11 @@
-/**
+/*
  * Driver instance object.
  *
  * One instance is equivalent to dynamic-db section in named.conf.
  * This module parses arguments and provide high-level operations
  * instance init/zone load/instance destroy.
  *
- * Copyright (C) 2008--2015  Red Hat ; see COPYING for license
+ * Copyright (C) 2008-2015  Red Hat ; see COPYING for license
  */
 
 #include <isc/util.h>
@@ -20,7 +20,7 @@
 #include "log.h"
 #include "zone.h"
 
-/**
+/*
  * Parse parameters and convert them to zone names. Caller has to deallocate
  * resulting DNS names.
  *
@@ -29,7 +29,7 @@
  * @param[out] z1   Zone name from argv[0]
  * @param[out] z2   Zone name from argv[1]
  */
-isc_result_t
+static isc_result_t
 parse_params(isc_mem_t *mctx, const char * const *argv, dns_name_t *z1,
 	     dns_name_t *z2)
 {
@@ -46,7 +46,8 @@ parse_params(isc_mem_t *mctx, const char * const *argv, dns_name_t *z1,
 	log_info("number of params: %d", idx);
 
 	if (idx != 2) {
-		log_error("exactly two parameters (absolute zone names) are required");
+		log_error("exactly two parameters "
+			  "(absolute zone names) are required");
 		result = ISC_R_FAILURE;
 		goto cleanup;
 	}
@@ -56,10 +57,10 @@ parse_params(isc_mem_t *mctx, const char * const *argv, dns_name_t *z1,
 	result = ISC_R_SUCCESS;
 
 cleanup:
-	return result;
+	return (result);
 }
 
-/**
+/*
  * Initialize new driver instance. It will not create zones until
  * load_sample_instance_zones() is called.
  */
@@ -94,16 +95,15 @@ new_sample_instance(isc_mem_t *mctx, const char *db_name,
 cleanup:
 	if (result != ISC_R_SUCCESS)
 		destroy_sample_instance(&inst);
-	return result;
+	return (result);
 }
 
-/**
+/*
  * Create empty zones, add fake SOA, NS, and A records, load fake zones
  * and add them to inst->view.
  */
 isc_result_t
-load_sample_instance_zones(sample_instance_t *inst)
-{
+load_sample_instance_zones(sample_instance_t *inst) {
 	isc_result_t result;
 
 	CHECK(create_zone(inst, &inst->zone1_name, &inst->zone1));
@@ -113,7 +113,7 @@ load_sample_instance_zones(sample_instance_t *inst)
 	CHECK(activate_zone(inst, inst->zone2));
 
 cleanup:
-	return result;
+	return (result);
 }
 
 void

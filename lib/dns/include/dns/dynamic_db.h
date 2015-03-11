@@ -63,4 +63,12 @@ dns_dyndb_set_timermgr(dns_dyndb_arguments_t *args,
 			    isc_timermgr_t *timermgr);
 isc_timermgr_t *
 dns_dyndb_get_timermgr(dns_dyndb_arguments_t *args);
+
+void
+dynamic_driver_destroy(void);
+
+isc_result_t
+dynamic_driver_init(isc_mem_t *mctx, const char *name,
+		    const char * const *argv,
+		    dns_dyndb_arguments_t *dyndb_args);
 #endif

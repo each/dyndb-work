@@ -1,5 +1,6 @@
-To use the Dynamic DB sample driver, run named and check the log:
+To use the Dynamic DB sample driver, run named and check the log.
 
+    $ cd testing
     $ named -gc named.conf
 
 You should be able to see something like

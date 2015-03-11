@@ -1,7 +1,7 @@
-/**
+/*
  * Automatic A/AAAA/PTR record synchronization.
  *
- * Copyright (C) 2009--2015  Red Hat ; see COPYING for license
+ * Copyright (C) 2009-2015  Red Hat ; see COPYING for license
  */
 #include <isc/event.h>
 #include <isc/eventclass.h>
@@ -21,7 +21,7 @@
 /* Almost random value. See eventclass.h */
 #define SYNCPTR_WRITE_EVENT (ISC_EVENTCLASS(1025) + 1)
 
-/**
+/*
  * Event used for making changes to reverse zones.
  */
 typedef struct syncptrevent syncptrevent_t;
@@ -35,7 +35,7 @@ struct syncptrevent {
 	unsigned char buf[DNS_NAME_MAXWIRE];
 };
 
-/**
+/*
  * Write diff generated in syncptr() to reverse zone.
  *
  * This function will be called asynchronously and syncptr() will not get
@@ -67,7 +67,7 @@ cleanup:
 	isc_event_free(&event);
 }
 
-/**
+/*
  * Find a reverse zone for given IP address.
  *
  * @param[in]  rdata      IP address as A/AAAA record
@@ -82,7 +82,8 @@ cleanup:
  */
 static isc_result_t
 syncptr_find_zone(sample_instance_t *inst, dns_rdata_t *rdata,
-		  dns_name_t *name, dns_zone_t **zone) {
+		  dns_name_t *name, dns_zone_t **zone)
+{
 	isc_result_t result;
 	isc_netaddr_t isc_ip; /* internal net address representation */
 	dns_rdata_in_a_t ipv4;
@@ -134,13 +135,11 @@ cleanup:
 	else
 		dns_rdata_freestruct(&ipv6);
 
-	return result;
+	return (result);
 }
 
-/**
+/*
  * Generate update event for PTR record to reflect change in A/AAAA record.
- *
- *
  *
  * @pre Reverse zone is managed by this driver.
  *
@@ -157,8 +156,9 @@ cleanup:
  * 			 memory allocation error, etc.
  */
 static isc_result_t
-syncptr(sample_instance_t *inst, dns_name_t *name, dns_rdata_t *addr_rdata,
-	dns_ttl_t ttl, dns_diffop_t op) {
+syncptr(sample_instance_t *inst, dns_name_t *name,
+	dns_rdata_t *addr_rdata, dns_ttl_t ttl, dns_diffop_t op)
+{
 	isc_result_t result;
 	isc_mem_t *mctx = inst->mctx;
 	dns_fixedname_t ptr_name;
@@ -210,8 +210,10 @@ syncptr(sample_instance_t *inst, dns_name_t *name, dns_rdata_t *addr_rdata,
 				   ttl, &ptr_rdata, &tp));
 	dns_diff_append(&pevent->diff, &tp);
 
-	/* Send update event to the reverse zone.
-	 * It will be processed asynchronously. */
+	/*
+	 * Send update event to the reverse zone.
+	 * It will be processed asynchronously.
+	 */
 	dns_zone_gettask(ptr_zone, &task);
 	isc_task_send(task, (isc_event_t **)&pevent);
 
@@ -225,10 +227,10 @@ cleanup:
 	if (pevent != NULL)
 		isc_event_free((isc_event_t **)&pevent);
 
-	return result;
+	return (result);
 }
 
-/**
+/*
  * Generate update event for every rdata in rdataset.
  *
  * @param[in]  name      Owner name for A/AAAA records in rdataset.
@@ -237,8 +239,9 @@ cleanup:
  * 			 the rdata
  */
 isc_result_t
-syncptrs(sample_instance_t *inst, dns_name_t *name, dns_rdataset_t *rdataset,
-	 dns_diffop_t op) {
+syncptrs(sample_instance_t *inst, dns_name_t *name,
+	 dns_rdataset_t *rdataset, dns_diffop_t op)
+{
 	isc_result_t result;
 	dns_rdata_t rdata = DNS_RDATA_INIT;
 
@@ -254,5 +257,5 @@ syncptrs(sample_instance_t *inst, dns_name_t *name, dns_rdataset_t *rdataset,
 		result = ISC_R_SUCCESS;
 
 cleanup:
-	return result;
+	return (result);
 }

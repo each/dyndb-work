@@ -1,10 +1,10 @@
-/**
+/*
  * Driver instance manager: Manages mapping between dynamic-db sections
  * in named.conf and driver instances.
  *
  * Instance name has to be unique.
  *
- * Copyright (C) 2009--2015  Red Hat ; see COPYING for license
+ * Copyright (C) 2009-2015  Red Hat ; see COPYING for license
  */
 
 #include <isc/mem.h>
@@ -45,8 +45,7 @@ static isc_result_t find_db_instance(const char *name, db_instance_t **instance)
 
 
 static void
-initialize_manager(void)
-{
+initialize_manager(void) {
 	INIT_LIST(instance_list);
 	isc_mutex_init(&instance_list_lock);
 	log_info("sample dyndb driver init ("
@@ -54,12 +53,11 @@ initialize_manager(void)
 		 ", compiler " __VERSION__ ")");
 }
 
-/**
+/*
  * Destroy all driver instances.
  */
 void
-destroy_manager(void)
-{
+destroy_manager(void) {
 	db_instance_t *db_inst;
 	db_instance_t *next;
 
@@ -77,8 +75,7 @@ destroy_manager(void)
 }
 
 static void
-destroy_db_instance(db_instance_t **db_instp)
-{
+destroy_db_instance(db_instance_t **db_instp) {
 	db_instance_t *db_inst;
 
 	REQUIRE(db_instp != NULL && *db_instp != NULL);
@@ -97,7 +94,7 @@ destroy_db_instance(db_instance_t **db_instp)
 	*db_instp = NULL;
 }
 
-/**
+/*
  * Create driver instance, parse configuration, and load zones.
  *
  * Only one instance with given name can be in named.conf at the same time.
@@ -130,31 +127,35 @@ manager_create_db_instance(isc_mem_t *mctx, const char *name,
 	CHECK(new_sample_instance(mctx, db_inst->name, argv, dyndb_args,
 				  &db_inst->inst));
 
-	/* instance must be in list before calling load_sample_instance_zones() */
+	/*
+	 * instance must be in list before calling
+	 * load_sample_instance_zones()
+	 */
 	LOCK(&instance_list_lock);
 	APPEND(instance_list, db_inst, link);
 	UNLOCK(&instance_list_lock);
 
-	/* This is an example so we loading create and load zones right now.
-	 * This step can be arbitrarily postponed. */
+	/*
+	 * This is an example so we create and load zones
+	 * right now.  This step can be arbitrarily postponed.
+	 */
 	CHECK(load_sample_instance_zones(db_inst->inst));
 
-	return ISC_R_SUCCESS;
+	return (ISC_R_SUCCESS);
 
 cleanup:
 	if (db_inst != NULL)
 		destroy_db_instance(&db_inst);
 
-	return result;
+	return (result);
 }
 
-/**
+/*
  * Auxiliary function to get driver instance coresponding
  * to a given instance name.
  */
 static isc_result_t
-find_db_instance(const char *name, db_instance_t **instance)
-{
+find_db_instance(const char *name, db_instance_t **instance) {
 	db_instance_t *iterator;
 
 	REQUIRE(name != NULL);
@@ -171,18 +172,17 @@ find_db_instance(const char *name, db_instance_t **instance)
 
 	if (iterator != NULL) {
 		*instance = iterator;
-		return ISC_R_SUCCESS;
+		return (ISC_R_SUCCESS);
 	}
 
-	return ISC_R_NOTFOUND;
+	return (ISC_R_NOTFOUND);
 }
 
-/**
+/*
  * Get driver instance coresponding to a given instance name.
  */
 isc_result_t
-manager_get_sample_instance(const char *name, sample_instance_t **inst)
-{
+manager_get_sample_instance(const char *name, sample_instance_t **inst) {
 	isc_result_t result;
 	db_instance_t *db_inst;
 
@@ -197,5 +197,5 @@ manager_get_sample_instance(const char *name, sample_instance_t **inst)
 	*inst = db_inst->inst;
 
 cleanup:
-	return result;
+	return (result);
 }

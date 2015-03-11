@@ -4374,6 +4374,7 @@ if test "$dlopen" = "yes"; then
 			  [Define to allow building of objects for dlopen().])
 	fi
 fi
+CFLAGS="$CFLAGS $SO_CFLAGS"
 
 AC_SUBST(SO)
 AC_SUBST(SO_CFLAGS)
@@ -4594,6 +4595,7 @@ AC_CONFIG_FILES([
 	bin/tests/dst/t2_data_2
 	bin/tests/dst/t2_dsasig
 	bin/tests/dst/t2_rsasig
+	bin/tests/dynamic_db/Makefile
 	bin/tests/hashes/Makefile
 	bin/tests/headerdep_test.sh
 	bin/tests/master/Makefile

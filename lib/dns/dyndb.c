@@ -39,10 +39,6 @@
 #include <dlfcn.h>
 #endif
 
-#ifndef DYNDB_LIBDIR
-#define DYNDB_LIBDIR ""
-#endif
-
 #define CHECK(op)						\
 	do { result = (op);					\
 		if (result != ISC_R_SUCCESS) goto cleanup;	\
@@ -50,8 +46,8 @@
 
 
 typedef isc_result_t (*register_func_t)(isc_mem_t *mctx, const char *name,
-					const char * const *argv,
-					const dns_dyndb_arguments_t *dyndb_args);
+				const char * const *argv,
+				const dns_dyndb_arguments_t *dyndb_args);
 typedef void (*destroy_func_t)(void);
 
 typedef struct dyndb_implementation dyndb_implementation_t;
@@ -113,6 +109,7 @@ load_symbol(void *handle, const char *symbol_name, void **symbolp) {
 
 static isc_result_t
 load_library(isc_mem_t *mctx, const char *filename,
+	     const dns_dyndb_arguments_t *args,
 	     dyndb_implementation_t **impp)
 {
 	isc_result_t result;
@@ -124,12 +121,22 @@ load_library(isc_mem_t *mctx, const char *filename,
 	register_func_t register_function = NULL;
 	destroy_func_t destroy_function = NULL;
 
+	REQUIRE(args != NULL);
 	REQUIRE(impp != NULL && *impp == NULL);
 
 	/* Build up the full path. */
-	module_size = strlen(DYNDB_LIBDIR) + strlen(filename) + 1;
+	module_size = strlen(filename) + 1;
+
+	if (args->view != NULL && args->view->dyndb_libdir != NULL)
+		module_size += strlen(args->view->dyndb_libdir) + 1;
+
 	CHECK(isc_buffer_allocate(mctx, &module_buf, module_size));
-	isc_buffer_putstr(module_buf, DYNDB_LIBDIR);
+
+	if (args->view != NULL && args->view->dyndb_libdir != NULL) {
+		isc_buffer_putstr(module_buf, args->view->dyndb_libdir);
+		isc_buffer_putstr(module_buf, "/");
+	}
+
 	isc_buffer_putstr(module_buf, filename);
 	isc_buffer_putuint8(module_buf, 0);
 	isc_buffer_region(module_buf, &module_region);
@@ -227,7 +234,7 @@ dns_dyndb_load(const char *libname, const char *name,
 
 	RUNTIME_CHECK(isc_once_do(&once, dyndb_initialize) == ISC_R_SUCCESS);
 
-	CHECK(load_library(mctx, libname, &implementation));
+	CHECK(load_library(mctx, libname, dyndb_args, &implementation));
 	CHECK(implementation->register_function(mctx, name, argv, dyndb_args));
 
 	LOCK(&dyndb_lock);

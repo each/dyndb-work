@@ -56,6 +56,7 @@ options {\n\
 #ifndef WIN32
 "	coresize default;\n\
 	datasize default;\n\
+	dynamic-db-libdir \"" DYNDB_LIBDIR "\";\n\
 	files unlimited;\n\
 	stacksize default;\n"
 #endif

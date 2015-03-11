@@ -1,4 +1,4 @@
-/**
+/*
  * Database API implementation. The interface is defined in lib/dns/db.h.
  *
  * dns_db_*() calls on database instances backed by this driver use
@@ -8,7 +8,7 @@
  * proxies most of dns_db_*() calls to this underlying RBT DB.
  * See struct sampledb below.
  *
- * Copyright (C) 2009--2015  Red Hat ; see COPYING for license
+ * Copyright (C) 2009-2015  Red Hat ; see COPYING for license
  */
 
 #include <dns/db.h>
@@ -20,6 +20,7 @@
 #include <dns/soa.h>
 #include <dns/types.h>
 
+#include "db.h"
 #include "instance.h"
 #include "instance_manager.h"
 #include "syncptr.h"
@@ -34,23 +35,17 @@ struct sampledb {
 	isc_refcount_t			refs;
 	sample_instance_t		*inst;
 
-	/**
+	/*
 	 * Internal RBT database implementation provided by BIND.
 	 * Most dns_db_* calls (find(), createiterator(), etc.)
-	 * are blindly forwarded to this RBT DB. */
+	 * are blindly forwarded to this RBT DB.
+	 */
 	dns_db_t			*rbtdb;
 };
 
 typedef struct sampledb sampledb_t;
 
-dns_db_t *
-sampledb_get_rbtdb(dns_db_t *db) {
-	sampledb_t *sampledb = (sampledb_t *)db;
-	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return sampledb->rbtdb;
-}
-
-/**
+/*
  * Get full DNS name from the node.
  *
  * @warning
@@ -62,22 +57,23 @@ sampledb_get_rbtdb(dns_db_t *db) {
 static isc_result_t
 sample_name_fromnode(dns_dbnode_t *node, dns_name_t *name) {
 	dns_rbtnode_t *rbtnode = (dns_rbtnode_t *) node;
-	return dns_rbt_fullnamefromnode(rbtnode, name);
+	return (dns_rbt_fullnamefromnode(rbtnode, name));
 }
 
 static void
-attach(dns_db_t *source, dns_db_t **targetp)
-{
+attach(dns_db_t *source, dns_db_t **targetp) {
 	sampledb_t *sampledb = (sampledb_t *)source;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	isc_refcount_increment(&sampledb->refs, NULL);
 	*targetp = source;
 }
 
 static void
-free_sampledb(sampledb_t *sampledb)
-{
+free_sampledb(sampledb_t *sampledb) {
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_detach(&sampledb->rbtdb);
 	dns_name_free(&sampledb->common.origin, sampledb->common.mctx);
 	isc_mem_putanddetach(&sampledb->common.mctx, sampledb, sizeof(*sampledb));
@@ -88,6 +84,7 @@ detach(dns_db_t **dbp)
 {
 	sampledb_t *sampledb = (sampledb_t *)(*dbp);
 	unsigned int refs;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
 
 	isc_refcount_decrement(&sampledb->refs, &refs);
@@ -96,7 +93,7 @@ detach(dns_db_t **dbp)
 	*dbp = NULL;
 }
 
-/**
+/*
  * This method should never be called, because DB is "persistent".
  * See ispersistent() function. It means that database do not need to be
  * loaded in the usual sense.
@@ -109,32 +106,33 @@ beginload(dns_db_t *db, dns_rdatacallbacks_t *callbacks) {
 	fatal_error("current implementation should never call beginload()");
 
 	/* Not reached */
-	return ISC_R_SUCCESS;
+	return (ISC_R_SUCCESS);
 }
 
-/**
+/*
  * This method should never be called, because DB is "persistent".
  * See ispersistent() function. It means that database do not need to be
  * loaded in the usual sense.
  */
 static isc_result_t
-endload(dns_db_t *db, dns_rdatacallbacks_t *callbacks)
-{
+endload(dns_db_t *db, dns_rdatacallbacks_t *callbacks) {
 	UNUSED(db);
 	UNUSED(callbacks);
 
 	fatal_error("current implementation should never call endload()");
 
 	/* Not reached */
-	return ISC_R_SUCCESS;
+	return (ISC_R_SUCCESS);
 }
 
 static isc_result_t
 serialize(dns_db_t *db, dns_dbversion_t *version, FILE *file)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_serialize(sampledb->rbtdb, version, file);
+
+	return (dns_db_serialize(sampledb->rbtdb, version, file));
 }
 
 static isc_result_t
@@ -150,23 +148,25 @@ dump(dns_db_t *db, dns_dbversion_t *version, const char *filename,
 	fatal_error("current implementation should never call dump()");
 
 	/* Not reached */
-	return ISC_R_SUCCESS;
+	return (ISC_R_SUCCESS);
 }
 
 static void
-currentversion(dns_db_t *db, dns_dbversion_t **versionp)
-{
+currentversion(dns_db_t *db, dns_dbversion_t **versionp) {
 	sampledb_t *sampledb = (sampledb_t *)db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_currentversion(sampledb->rbtdb, versionp);
 }
 
 static isc_result_t
-newversion(dns_db_t *db, dns_dbversion_t **versionp)
-{
+newversion(dns_db_t *db, dns_dbversion_t **versionp) {
 	sampledb_t *sampledb = (sampledb_t *)db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_newversion(sampledb->rbtdb, versionp);
+
+	return (dns_db_newversion(sampledb->rbtdb, versionp));
 }
 
 static void
@@ -174,7 +174,9 @@ attachversion(dns_db_t *db, dns_dbversion_t *source,
 	      dns_dbversion_t **targetp)
 {
 	sampledb_t *sampledb = (sampledb_t *)db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_attachversion(sampledb->rbtdb, source, targetp);
 }
 
@@ -182,7 +184,9 @@ static void
 closeversion(dns_db_t *db, dns_dbversion_t **versionp, isc_boolean_t commit)
 {
 	sampledb_t *sampledb = (sampledb_t *)db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_closeversion(sampledb->rbtdb, versionp, commit);
 }
 
@@ -191,8 +195,10 @@ findnode(dns_db_t *db, dns_name_t *name, isc_boolean_t create,
 	 dns_dbnode_t **nodep)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_findnode(sampledb->rbtdb, name, create, nodep);
+
+	return (dns_db_findnode(sampledb->rbtdb, name, create, nodep));
 }
 
 static isc_result_t
@@ -202,9 +208,12 @@ find(dns_db_t *db, dns_name_t *name, dns_dbversion_t *version,
      dns_rdataset_t *sigrdataset)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_find(sampledb->rbtdb, name, version, type, options, now,
-			   nodep, foundname, rdataset, sigrdataset);
+
+	return (dns_db_find(sampledb->rbtdb, name, version, type,
+			    options, now, nodep, foundname,
+			    rdataset, sigrdataset));
 }
 
 static isc_result_t
@@ -213,50 +222,60 @@ findzonecut(dns_db_t *db, dns_name_t *name, unsigned int options,
 	    dns_rdataset_t *rdataset, dns_rdataset_t *sigrdataset)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_findzonecut(sampledb->rbtdb, name, options, now, nodep,
-				  foundname, rdataset, sigrdataset);
+
+	return (dns_db_findzonecut(sampledb->rbtdb, name, options,
+				   now, nodep, foundname, rdataset,
+				   sigrdataset));
 }
 
 static void
-attachnode(dns_db_t *db, dns_dbnode_t *source, dns_dbnode_t **targetp)
-{
+attachnode(dns_db_t *db, dns_dbnode_t *source, dns_dbnode_t **targetp) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_attachnode(sampledb->rbtdb, source, targetp);
 
 }
 
 static void
-detachnode(dns_db_t *db, dns_dbnode_t **targetp)
-{
+detachnode(dns_db_t *db, dns_dbnode_t **targetp) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_detachnode(sampledb->rbtdb, targetp);
 }
 
 static isc_result_t
-expirenode(dns_db_t *db, dns_dbnode_t *node, isc_stdtime_t now)
-{
+expirenode(dns_db_t *db, dns_dbnode_t *node, isc_stdtime_t now) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_expirenode(sampledb->rbtdb, node, now);
+
+	return (dns_db_expirenode(sampledb->rbtdb, node, now));
 }
 
 static void
-printnode(dns_db_t *db, dns_dbnode_t *node, FILE *out)
-{
+printnode(dns_db_t *db, dns_dbnode_t *node, FILE *out) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_printnode(sampledb->rbtdb, node, out);
+
+	return (dns_db_printnode(sampledb->rbtdb, node, out));
 }
 
 static isc_result_t
-createiterator(dns_db_t *db, unsigned int options, dns_dbiterator_t **iteratorp)
+createiterator(dns_db_t *db, unsigned int options,
+	       dns_dbiterator_t **iteratorp)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_createiterator(sampledb->rbtdb, options, iteratorp);
+
+	return (dns_db_createiterator(sampledb->rbtdb, options, iteratorp));
 }
 
 static isc_result_t
@@ -265,9 +284,11 @@ findrdataset(dns_db_t *db, dns_dbnode_t *node, dns_dbversion_t *version,
 	     dns_rdataset_t *rdataset, dns_rdataset_t *sigrdataset)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_findrdataset(sampledb->rbtdb, node, version, type, covers,
-				   now, rdataset, sigrdataset);
+
+	return (dns_db_findrdataset(sampledb->rbtdb, node, version, type,
+				    covers, now, rdataset, sigrdataset));
 }
 
 static isc_result_t
@@ -275,8 +296,11 @@ allrdatasets(dns_db_t *db, dns_dbnode_t *node, dns_dbversion_t *version,
 	     isc_stdtime_t now, dns_rdatasetiter_t **iteratorp)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_allrdatasets(sampledb->rbtdb, node, version, now, iteratorp);
+
+	return (dns_db_allrdatasets(sampledb->rbtdb, node, version,
+				    now, iteratorp));
 }
 
 static isc_result_t
@@ -301,7 +325,7 @@ addrdataset(dns_db_t *db, dns_dbnode_t *node, dns_dbversion_t *version,
 	}
 
 cleanup:
-	return result;
+	return (result);
 }
 
 static isc_result_t
@@ -329,10 +353,10 @@ subtractrdataset(dns_db_t *db, dns_dbnode_t *node, dns_dbversion_t *version,
 	}
 
 cleanup:
-	return result;
+	return (result);
 }
 
-/**
+/*
  * deleterdataset() function is not used during DNS update processing so syncptr
  * implementation is left as an exercise to the reader.
  */
@@ -341,68 +365,75 @@ deleterdataset(dns_db_t *db, dns_dbnode_t *node, dns_dbversion_t *version,
 	       dns_rdatatype_t type, dns_rdatatype_t covers)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_deleterdataset(sampledb->rbtdb, node, version, type,
-				     covers);
+
+	return (dns_db_deleterdataset(sampledb->rbtdb, node, version,
+				      type, covers));
 }
 
 static isc_boolean_t
-issecure(dns_db_t *db)
-{
+issecure(dns_db_t *db) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_issecure(sampledb->rbtdb);
+
+	return (dns_db_issecure(sampledb->rbtdb));
 }
 
 static unsigned int
-nodecount(dns_db_t *db)
-{
+nodecount(dns_db_t *db) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_nodecount(sampledb->rbtdb);
+
+	return (dns_db_nodecount(sampledb->rbtdb));
 }
 
-/**
+/*
  * The database does not need to be loaded from disk or written to disk.
  * Always return ISC_TRUE.
  */
 static isc_boolean_t
-ispersistent(dns_db_t *db)
-{
+ispersistent(dns_db_t *db) {
 	UNUSED(db);
 
-	return ISC_TRUE;
+	return (ISC_TRUE);
 }
 
 static void
-overmem(dns_db_t *db, isc_boolean_t overmem)
-{
+overmem(dns_db_t *db, isc_boolean_t overmem) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_overmem(sampledb->rbtdb, overmem);
 }
 
 static void
-settask(dns_db_t *db, isc_task_t *task)
-{
+settask(dns_db_t *db, isc_task_t *task) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_settask(sampledb->rbtdb, task);
 }
 
 static isc_result_t
-getoriginnode(dns_db_t *db, dns_dbnode_t **nodep)
-{
+getoriginnode(dns_db_t *db, dns_dbnode_t **nodep) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_getoriginnode(sampledb->rbtdb, nodep);
+
+	return (dns_db_getoriginnode(sampledb->rbtdb, nodep));
 }
 
 static void
-transfernode(dns_db_t *db, dns_dbnode_t **sourcep, dns_dbnode_t **targetp)
-{
+transfernode(dns_db_t *db, dns_dbnode_t **sourcep, dns_dbnode_t **targetp) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_transfernode(sampledb->rbtdb, sourcep, targetp);
 
 }
@@ -414,9 +445,12 @@ getnsec3parameters(dns_db_t *db, dns_dbversion_t *version,
 			  unsigned char *salt, size_t *salt_length)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_getnsec3parameters(sampledb->rbtdb, version, hash, flags,
-					 iterations, salt, salt_length);
+
+	return (dns_db_getnsec3parameters(sampledb->rbtdb, version,
+					  hash, flags, iterations,
+					  salt, salt_length));
 
 }
 
@@ -425,24 +459,30 @@ findnsec3node(dns_db_t *db, dns_name_t *name, isc_boolean_t create,
 	      dns_dbnode_t **nodep)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_findnsec3node(sampledb->rbtdb, name, create, nodep);
+
+	return (dns_db_findnsec3node(sampledb->rbtdb, name, create, nodep));
 }
 
 static isc_result_t
 setsigningtime(dns_db_t *db, dns_rdataset_t *rdataset, isc_stdtime_t resign)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_setsigningtime(sampledb->rbtdb, rdataset, resign);
+
+	return (dns_db_setsigningtime(sampledb->rbtdb, rdataset, resign));
 }
 
 static isc_result_t
 getsigningtime(dns_db_t *db, dns_rdataset_t *rdataset, dns_name_t *name)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_getsigningtime(sampledb->rbtdb, rdataset, name);
+
+	return (dns_db_getsigningtime(sampledb->rbtdb, rdataset, name));
 }
 
 static void
@@ -450,7 +490,9 @@ resigned(dns_db_t *db, dns_rdataset_t *rdataset,
 		dns_dbversion_t *version)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_resigned(sampledb->rbtdb, rdataset, version);
 }
 
@@ -458,76 +500,88 @@ static isc_boolean_t
 isdnssec(dns_db_t *db)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_isdnssec(sampledb->rbtdb);
+
+	return (dns_db_isdnssec(sampledb->rbtdb));
 }
 
 static dns_stats_t *
 getrrsetstats(dns_db_t *db) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_getrrsetstats(sampledb->rbtdb);
+
+	return (dns_db_getrrsetstats(sampledb->rbtdb));
 
 }
 
-void
-rpz_attach(dns_db_t *db, dns_rpz_zones_t *rpzs, dns_rpz_num_t rpz_num)
-{
+static void
+rpz_attach(dns_db_t *db, dns_rpz_zones_t *rpzs, dns_rpz_num_t rpz_num) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
+
 	dns_db_rpz_attach(sampledb->rbtdb, rpzs, rpz_num);
 }
 
-isc_result_t
-rpz_ready(dns_db_t *db)
-{
+static isc_result_t
+rpz_ready(dns_db_t *db) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_rpz_ready(sampledb->rbtdb);
+
+	return (dns_db_rpz_ready(sampledb->rbtdb));
 }
 
 static isc_result_t
 findnodeext(dns_db_t *db, dns_name_t *name,
-		   isc_boolean_t create, dns_clientinfomethods_t *methods,
-		   dns_clientinfo_t *clientinfo, dns_dbnode_t **nodep)
+	    isc_boolean_t create, dns_clientinfomethods_t *methods,
+	    dns_clientinfo_t *clientinfo, dns_dbnode_t **nodep)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_findnodeext(sampledb->rbtdb, name, create, methods,
-				  clientinfo, nodep);
+
+	return (dns_db_findnodeext(sampledb->rbtdb, name, create,
+				   methods, clientinfo, nodep));
 }
 
 static isc_result_t
 findext(dns_db_t *db, dns_name_t *name, dns_dbversion_t *version,
-	       dns_rdatatype_t type, unsigned int options, isc_stdtime_t now,
-	       dns_dbnode_t **nodep, dns_name_t *foundname,
-	       dns_clientinfomethods_t *methods, dns_clientinfo_t *clientinfo,
-	       dns_rdataset_t *rdataset, dns_rdataset_t *sigrdataset)
+	dns_rdatatype_t type, unsigned int options, isc_stdtime_t now,
+	dns_dbnode_t **nodep, dns_name_t *foundname,
+	dns_clientinfomethods_t *methods, dns_clientinfo_t *clientinfo,
+	dns_rdataset_t *rdataset, dns_rdataset_t *sigrdataset)
 {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_findext(sampledb->rbtdb, name, version, type, options, now,
-			      nodep, foundname, methods, clientinfo, rdataset,
-			      sigrdataset);
+
+	return (dns_db_findext(sampledb->rbtdb, name, version, type,
+			       options, now, nodep, foundname, methods,
+			       clientinfo, rdataset, sigrdataset));
 }
 
-isc_result_t
-setcachestats(dns_db_t *db, isc_stats_t *stats)
-{
+static isc_result_t
+setcachestats(dns_db_t *db, isc_stats_t *stats) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_setcachestats(sampledb->rbtdb, stats);
+
+	return (dns_db_setcachestats(sampledb->rbtdb, stats));
 }
 
-unsigned int
-hashsize(dns_db_t *db)
-{
+static unsigned int
+hashsize(dns_db_t *db) {
 	sampledb_t *sampledb = (sampledb_t *) db;
+
 	REQUIRE(VALID_SAMPLEDB(sampledb));
-	return dns_db_hashsize(sampledb->rbtdb);
+
+	return (dns_db_hashsize(sampledb->rbtdb));
 }
 
-/**
+/*
  * DB interface definition. Database driver uses this structure to
  * determine which implementation of dns_db_*() function to call.
  */
@@ -577,9 +631,9 @@ static dns_dbmethods_t sampledb_methods = {
 	hashsize
 };
 
-/** Auxiliary driver functions. **/
+/* Auxiliary driver functions. */
 
-/**
+/*
  * Auxiliary functions add_*() create minimal database which can be loaded.
  * This is necessary because this driver create empty 'fake' zone which
  * is not loaded from disk so there is no way for user to supply SOA, NS and A
@@ -692,7 +746,7 @@ add_a(dns_db_t *db, dns_dbversion_t *version, dns_name_t *name,
 	return (result);
 }
 
-/**
+/*
  * Driver-specific implementation of dns_db_create().
  *
  * @param[in] argv      Database-specific parameters from dns_db_create().
@@ -716,6 +770,7 @@ create_db(isc_mem_t *mctx, dns_name_t *origin, dns_dbtype_t type,
 	REQUIRE(dbp != NULL && *dbp == NULL);
 
 	UNUSED(driverarg); /* no driver-specific configuration */
+
 	CHECKED_MEM_GET_PTR(mctx, sampledb);
 	ZERO_PTR(sampledb);
 
@@ -750,7 +805,7 @@ create_db(isc_mem_t *mctx, dns_name_t *origin, dns_dbtype_t type,
 
 	*dbp = (dns_db_t *)sampledb;
 
-	return ISC_R_SUCCESS;
+	return (ISC_R_SUCCESS);
 
 cleanup:
 	if (sampledb != NULL) {
@@ -761,5 +816,5 @@ cleanup:
 				     sizeof(*sampledb));
 	}
 
-	return result;
+	return (result);
 }

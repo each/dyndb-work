@@ -1350,7 +1350,7 @@ configure_dyndb(const cfg_obj_t *dyndb, isc_mem_t *mctx,
 {
 	isc_result_t result;
 	const cfg_obj_t *obj;
-	const cfg_obj_t *options;
+	const cfg_obj_t *dyndb_opts;
 	const cfg_listelt_t *element;
 	const char *name;
 	const char *libname;
@@ -1362,17 +1362,17 @@ configure_dyndb(const cfg_obj_t *dyndb, isc_mem_t *mctx,
 	obj = cfg_tuple_get(dyndb, "name");
 	name = cfg_obj_asstring(obj);
 
-	/* Get options. */
-	options = cfg_tuple_get(dyndb, "options");
+	/* Get dynamic db configuration. */
+	dyndb_opts = cfg_tuple_get(dyndb, "options");
 
 	/* Get library name. */
 	obj = NULL;
-	CHECK(cfg_map_get(options, "library", &obj));
+	CHECK(cfg_map_get(dyndb_opts, "library", &obj));
 	libname = cfg_obj_asstring(obj);
 
 	/* Create a list of arguments. */
 	obj = NULL;
-	result = cfg_map_get(options, "arg", &obj);
+	result = cfg_map_get(dyndb_opts, "arg", &obj);
 	if (result == ISC_R_NOTFOUND)
 		len = 0;
 	else if (result == ISC_R_SUCCESS)
@@ -3741,6 +3741,11 @@ configure_view(dns_view_t *view, dns_viewlist_t *viewlist,
 	/*
 	 * Configure dynamic databases.
 	 */
+	obj = NULL;
+	result = ns_config_get(maps, "dynamic-db-libdir", &obj);
+	if (result == ISC_R_SUCCESS)
+		view->dyndb_libdir = cfg_obj_asstring(obj);
+
 	dyndb_list = NULL;
 	if (voptions != NULL)
 		(void)cfg_map_get(voptions, "dynamic-db", &dyndb_list);
