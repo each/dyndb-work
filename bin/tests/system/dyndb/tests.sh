@@ -28,43 +28,98 @@ newtest() {
 	ret=0
 }
 
-test_update() {
+test_add() {
     host="$1"
     type="$2"
-    cmd="$3"
-    digout="$4"
-    should_fail="$5"
+    ip="$3"
 
     cat <<EOF > ns1/update.txt
 server 10.53.0.1 5300
-update add $host $cmd
+ttl 86400
+update add $host $type $ip
 send
 EOF
 
-    newtest "I:testing update for $host $type $cmd${comment:+ }$comment"
-    $NSUPDATE -k ns1/ddns.key ns1/update.txt > /dev/null 2>&1 || {
+    newtest "I:adding $host $type $ip"
+    $NSUPDATE ns1/update.txt > /dev/null 2>&1 || {
 	[ "$should_fail" ] || \
-             echo "I:update failed for $host $type $cmd"
+             echo "I:update failed for $host $type $ip"
 	return 1
     }
 
-    out=`$DIG $DIGOPTS -t $type -q $host | egrep "^$host"`
-    lines=`echo "$out" | grep "$digout" | wc -l`
+    out=`$DIG $DIGOPTS +noall +answer -t $type -q $host`
+    lines=`echo "$out" | grep "$ip" | wc -l`
     [ $lines -eq 1 ] || {
 	[ "$should_fail" ] || \
             echo "I:dig output incorrect for $host $type $cmd: $out"
 	return 1
     }
+
+    out=`$DIG $DIGOPTS +noall +answer -x $ip`
+    lines=`echo "$out" | grep "$host" | wc -l`
+    [ $lines -eq 1 ] || {
+	[ "$should_fail" ] || \
+            echo "I:dig reverse output incorrect for $host $type $cmd: $out"
+	return 1
+    }
+
     return 0
 }
 
-test_update testdc1.example.nil. A "86400 A 10.53.0.10" "10.53.0.10" || ret=1
+test_del() {
+    host="$1"
+    type="$2"
+
+    ip=`$DIG $DIGOPTS +short $host`
+
+    cat <<EOF > ns1/update.txt
+server 10.53.0.1 5300
+update del $host $type
+send
+EOF
+
+    newtest "I:deleting $host $type (was $ip)"
+    $NSUPDATE ns1/update.txt > /dev/null 2>&1 || {
+	[ "$should_fail" ] || \
+             echo "I:update failed deleting $host $type"
+	return 1
+    }
+
+    out=`$DIG $DIGOPTS +noall +answer -t $type -q $host`
+    lines=`echo "$out" | grep "$ip" | wc -l`
+    [ $lines -eq 0 ] || {
+	[ "$should_fail" ] || \
+            echo "I:dig output incorrect for $host $type $cmd: $out"
+	return 1
+    }
+
+    out=`$DIG $DIGOPTS +noall +answer -x $ip`
+    lines=`echo "$out" | grep "$host" | wc -l`
+    [ $lines -eq 0 ] || {
+	[ "$should_fail" ] || \
+            echo "I:dig reverse output incorrect for $host $type $cmd: $out"
+	return 1
+    }
+
+    return 0
+}
+
+test_add test1.example.nil. A "10.53.0.10" || ret=1
 status=`expr $status + $ret`
 
-test_update testdc2.example.nil. A "86400 A 10.53.0.11" "10.53.0.11" || ret=1
+test_add test2.example.nil. A "10.53.0.11" || ret=1
 status=`expr $status + $ret`
 
-test_update testdc3.example.nil. A "86400 A 10.53.0.10" "10.53.0.10" || ret=1
+test_add test3.example.nil. A "10.53.0.12" || ret=1
+status=`expr $status + $ret`
+
+test_del test3.example.nil. A || ret=1
+status=`expr $status + $ret`
+
+test_del test2.example.nil. A || ret=1
+status=`expr $status + $ret`
+
+test_del test1.example.nil. A || ret=1
 status=`expr $status + $ret`
 
 exit $status
