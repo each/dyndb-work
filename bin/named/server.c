@@ -3736,7 +3736,7 @@ configure_view(dns_view_t *view, dns_viewlist_t *viewlist,
 		const cfg_obj_t *dyndb = cfg_listelt_value(element);
 
 		if (dctx == NULL)
-			CHECK(dns_dyndb_createctx(mctx, view,
+			CHECK(dns_dyndb_createctx(mctx, ns_g_lctx, view,
 						  ns_g_server->zonemgr,
 						  ns_g_server->task,
 						  ns_g_timermgr, &dctx));

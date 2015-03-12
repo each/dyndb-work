@@ -182,8 +182,7 @@ attachversion(dns_db_t *db, dns_dbversion_t *source,
 }
 
 static void
-closeversion(dns_db_t *db, dns_dbversion_t **versionp, isc_boolean_t commit)
-{
+closeversion(dns_db_t *db, dns_dbversion_t **versionp, isc_boolean_t commit) {
 	sampledb_t *sampledb = (sampledb_t *)db;
 
 	REQUIRE(VALID_SAMPLEDB(sampledb));

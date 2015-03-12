@@ -253,7 +253,7 @@ dns_dyndb_cleanup(isc_boolean_t exiting) {
 }
 
 isc_result_t
-dns_dyndb_createctx(isc_mem_t *mctx, dns_view_t *view,
+dns_dyndb_createctx(isc_mem_t *mctx, isc_log_t *lctx, dns_view_t *view,
 		    dns_zonemgr_t *zmgr, isc_task_t *task,
 		    isc_timermgr_t *tmgr, dns_dyndbctx_t **dctxp) {
 	dns_dyndbctx_t *dctx;
@@ -272,6 +272,8 @@ dns_dyndb_createctx(isc_mem_t *mctx, dns_view_t *view,
 	if (task != NULL)
 		isc_task_attach(task, &dctx->task);
 	dctx->timermgr = tmgr;
+	dctx->lctx = lctx;
+
 	isc_mem_attach(mctx, &dctx->mctx);
 	dctx->magic = DNS_DYNDBCTX_MAGIC;
 
@@ -299,6 +301,7 @@ dns_dyndb_destroyctx(dns_dyndbctx_t **dctxp) {
 	if (dctx->task != NULL)
 		isc_task_detach(&dctx->task);
 	dctx->timermgr = NULL;
+	dctx->lctx = NULL;
 
 	isc_mem_putanddetach(&dctx->mctx, dctx, sizeof(*dctx));
 

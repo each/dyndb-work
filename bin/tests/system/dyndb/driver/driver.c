@@ -22,6 +22,7 @@
 
 #include <dns/db.h>
 #include <dns/dyndb.h>
+#include <dns/lib.h>
 #include <dns/types.h>
 
 #include "db.h"
@@ -30,6 +31,8 @@
 
 static dns_dbimplementation_t *sampledb_imp;
 const char *impname = "dynamic-sample";
+
+static isc_boolean_t hash_active = ISC_FALSE;
 
 dns_dyndb_destroy_t driver_destroy;
 dns_dyndb_register_t driver_init;
@@ -67,7 +70,14 @@ driver_init(isc_mem_t *mctx, const char *name,
 	REQUIRE(dctx != NULL);
 
 	isc_lib_register();
-	isc_hash_create(mctx, NULL, DNS_NAME_MAXWIRE);
+	dns_lib_init();
+	isc_log_setcontext(dctx->lctx);
+	dns_log_setcontext(dctx->lctx);
+
+	if (!hash_active) {
+		isc_hash_create(mctx, NULL, DNS_NAME_MAXWIRE);
+		hash_active = ISC_TRUE;
+	}
 
 	log_info("registering dynamic sample driver for instance '%s'", name);
 

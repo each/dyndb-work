@@ -50,6 +50,7 @@ static void
 initialize_manager(void) {
 	INIT_LIST(instance_list);
 	isc_mutex_init(&instance_list_lock);
+
 	log_info("sample dyndb driver init ("
 		 "compiled at " __TIME__ " " __DATE__
 		 ", compiler " __VERSION__ ")");

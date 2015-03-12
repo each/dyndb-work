@@ -47,13 +47,14 @@ struct syncptrevent {
  */
 static void
 syncptr_write(isc_task_t *task, isc_event_t *event) {
-	REQUIRE(event->ev_type == SYNCPTR_WRITE_EVENT);
-	UNUSED(task);
-
 	syncptrevent_t *pevent = (syncptrevent_t *)event;
 	dns_dbversion_t *version = NULL;
 	dns_db_t *db = NULL;
 	isc_result_t result;
+
+	REQUIRE(event->ev_type == SYNCPTR_WRITE_EVENT);
+
+	UNUSED(task);
 
 	CHECK(dns_zone_getdb(pevent->zone, &db));
 	CHECK(dns_db_newversion(db, &version));
@@ -119,7 +120,7 @@ syncptr_find_zone(sample_instance_t *inst, dns_rdata_t *rdata,
 	 */
 	CHECK(dns_byaddr_createptrname2(&isc_ip, 0, name));
 
-	/* Find an zone containing owner name of the PTR record. */
+	/* Find a zone containing owner name of the PTR record. */
 	result = dns_zt_find(inst->view->zonetable, name, 0, NULL, zone);
 	if (result == DNS_R_PARTIALMATCH)
 		result = ISC_R_SUCCESS;
