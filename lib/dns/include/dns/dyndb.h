@@ -27,6 +27,7 @@ ISC_LANG_BEGINDECLS
 struct dns_dyndbctx {
 	unsigned int	magic;
 	isc_mem_t	*mctx;
+	isc_hash_t	*hctx;
 	isc_log_t	*lctx;
 	dns_view_t	*view;
 	dns_zonemgr_t	*zmgr;
@@ -58,9 +59,10 @@ void
 dns_dyndb_cleanup(isc_boolean_t exiting);
 
 isc_result_t
-dns_dyndb_createctx(isc_mem_t *mctx, isc_log_t *lctx, dns_view_t *view,
-		    dns_zonemgr_t *zmgr, isc_task_t *task,
-		    isc_timermgr_t *tmgr, dns_dyndbctx_t **dctxp);
+dns_dyndb_createctx(isc_mem_t *mctx, isc_hash_t *hctx, isc_log_t *lctx,
+		    dns_view_t *view, dns_zonemgr_t *zmgr,
+		    isc_task_t *task, isc_timermgr_t *tmgr,
+		    dns_dyndbctx_t **dctxp);
 
 void
 dns_dyndb_destroyctx(dns_dyndbctx_t **dctxp);

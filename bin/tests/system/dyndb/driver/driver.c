@@ -32,8 +32,6 @@
 static dns_dbimplementation_t *sampledb_imp;
 const char *impname = "dynamic-sample";
 
-static isc_boolean_t hash_active = ISC_FALSE;
-
 dns_dyndb_destroy_t driver_destroy;
 dns_dyndb_register_t driver_init;
 
@@ -73,11 +71,7 @@ driver_init(isc_mem_t *mctx, const char *name,
 	dns_lib_init();
 	isc_log_setcontext(dctx->lctx);
 	dns_log_setcontext(dctx->lctx);
-
-	if (!hash_active) {
-		isc_hash_create(mctx, NULL, DNS_NAME_MAXWIRE);
-		hash_active = ISC_TRUE;
-	}
+	isc_hash_ctxattach(dctx->hctx, &isc_hashctx);
 
 	log_info("registering dynamic sample driver for instance '%s'", name);
 
@@ -109,5 +103,5 @@ driver_destroy(void) {
 		dns_db_unregister(&sampledb_imp);
 
 	destroy_manager();
-	isc_hash_destroy();
+	isc_hash_ctxdetach(&isc_hashctx);
 }
