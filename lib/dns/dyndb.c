@@ -107,6 +107,8 @@ load_library(isc_mem_t *mctx, const char *filename,
 	dyndb_implementation_t *imp;
 	dns_dyndb_register_t *register_func = NULL;
 	dns_dyndb_destroy_t *destroy_func = NULL;
+	dns_dyndb_version_t *version_func = NULL;
+	int version;
 
 	REQUIRE(args != NULL);
 	REQUIRE(impp != NULL && *impp == NULL);
@@ -130,10 +132,24 @@ load_library(isc_mem_t *mctx, const char *filename,
 	}
 	dlerror();
 
-	CHECK(load_symbol(handle, "driver_init",
+	CHECK(load_symbol(handle, "dyndb_init",
 			  (void **)&register_func));
-	CHECK(load_symbol(handle, "driver_destroy",
+	CHECK(load_symbol(handle, "dyndb_destroy",
 			  (void **)&destroy_func));
+	CHECK(load_symbol(handle, "dyndb_version",
+			  (void **)&version_func));
+
+	version = version_func(NULL);
+	if (version < (DNS_DYNDB_VERSION - DNS_DYNDB_AGE) ||
+	    version > DNS_DYNDB_VERSION)
+	{
+		isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
+			      DNS_LOGMODULE_DYNDB, ISC_LOG_ERROR,
+			      "driver API version mismatch: %d/%d",
+			      version, DNS_DYNDB_VERSION);
+		CHECK(ISC_R_FAILURE);
+	}
+
 
 	imp = isc_mem_get(mctx, sizeof(dyndb_implementation_t));
 	if (imp == NULL) {

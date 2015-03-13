@@ -38,12 +38,22 @@ struct dns_dyndbctx {
 #define DNS_DYNDBCTX_MAGIC	ISC_MAGIC('D', 'd', 'b', 'c')
 #define DNS_DYNDBCTX_VALID(d)	ISC_MAGIC_VALID(d, DNS_DYNDBCTX_MAGIC)
 
+/*
+ * API version
+ */
+#ifndef DNS_DYNDB_VERSION
+#define DNS_DYNDB_VERSION 1
+#define DNS_DYNDB_AGE 0
+#endif
+
 typedef isc_result_t dns_dyndb_register_t(isc_mem_t *mctx,
 					  const char *name,
 					  unsigned int argc,
 					  char **argv,
 					  const dns_dyndbctx_t *dctx);
 typedef void dns_dyndb_destroy_t(void);
+
+typedef int dns_dyndb_version_t(unsigned int *flags);
 
 /*
  * TODO:

@@ -1,8 +1,8 @@
 /*
  * Driver API implementation and main entry point for BIND.
  *
- * BIND calls driver_init() during startup
- * and driver_destroy() during shutdown.
+ * BIND calls dyndb_verison() before loading, dyndb_init() during startup
+ * and dyndb_destroy() during shutdown.
  *
  * It is completely up to implementation what to do.
  *
@@ -32,8 +32,9 @@
 static dns_dbimplementation_t *sampledb_imp;
 const char *impname = "dynamic-sample";
 
-dns_dyndb_destroy_t driver_destroy;
-dns_dyndb_register_t driver_init;
+dns_dyndb_destroy_t dyndb_destroy;
+dns_dyndb_register_t dyndb_init;
+dns_dyndb_version_t dyndb_version;
 
 /*
  * Driver init is is called once during startup and then on every reload.
@@ -57,7 +58,7 @@ dns_dyndb_register_t driver_init;
  *                 argv[2] = "param2";
  */
 isc_result_t
-driver_init(isc_mem_t *mctx, const char *name,
+dyndb_init(isc_mem_t *mctx, const char *name,
 	    unsigned int argc, char **argv, const dns_dyndbctx_t *dctx)
 {
 	dns_dbimplementation_t *sampledb_imp_new = NULL;
@@ -97,11 +98,22 @@ driver_init(isc_mem_t *mctx, const char *name,
  * way how to find out for which instance.
  */
 void
-driver_destroy(void) {
+dyndb_destroy(void) {
 	/* Only unregister the implementation if it was registered by us. */
 	if (sampledb_imp != NULL)
 		dns_db_unregister(&sampledb_imp);
 
 	destroy_manager();
 	isc_hash_ctxdetach(&isc_hashctx);
+}
+
+/*
+ * Driver version is called when loading the driver to ensure there
+ * is no API mismatch betwen the driver and the caller.
+ */
+int
+dyndb_version(unsigned int *flags) {
+	UNUSED(flags);
+
+	return (DNS_DYNDB_VERSION);
 }
