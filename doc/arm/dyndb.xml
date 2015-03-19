@@ -48,16 +48,21 @@
       statement in <filename>named.conf</filename>:
     </para>
     <screen>
-    dyndb example {
-        database "driver.so <option>args</option>";
+    dyndb example "driver.so" {
+        <replaceable>parameters</replaceable>
     };
     </screen>
     <para>
-      This specifies a DynDB module which implements the full DNS
-      database API.  Multiple <command>dyndb</command> statements can
-      be specified.  Zones provided by a DynDB module are added to the
-      view's zone table.  Zone configuration is handled internally by
-      the DynDB module.
+      The file <filename>driver.so</filename> is a DynDB module which
+      implements the full DNS database API.  Multiple
+      <command>dyndb</command> statements can be specified.  Zones
+      provided by a DynDB module are added to the view's zone table.
+      Zone configuration is handled internally by the DynDB module.
+    </para>
+    <para>
+      The <replaceable>parameters</replaceable> are passed as an opaque
+      string to the DynDB module's initialization routine. Configuration
+      syntax will differ depending on the driver.
     </para>
   </sect2>
   <sect2>
@@ -71,9 +76,7 @@
       statement:
     </para>
     <screen>
-    dyndb other {
-        database "sample.so example.nil. arpa.";
-    };
+    dyndb sample "sample.so" { example.nil. arpa. };
     </screen>
     <para>
       In the above example, the module is configured to create a zone
