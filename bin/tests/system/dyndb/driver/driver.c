@@ -40,9 +40,7 @@ dns_dyndb_version_t dyndb_version;
  * Driver init is is called once during startup and then on every reload.
  *
  * @code
- * dyndb "example-name" {
- * 	database "sample.so param1 param2";
- * };
+ * dyndb example-name "sample.so" { param1 param2 };
  * @endcode
  * 
  * @param[in] name User-defined string from dynamic-db "name" {}; definition
@@ -50,12 +48,11 @@ dns_dyndb_version_t dyndb_version;
  *                 The example above will have name = "example-name".
  * @param[in] argc Number of arg parameters
  *                 definition. The example above will have
- *                 argc = 3;
+ *                 argc = 2;
  * @param[in] argv User-defined strings from arg parameters in dynamic-db
  *                 definition. The example above will have
- *                 argv[0] = "sample.so";
- *                 argv[1] = "param1";
- *                 argv[2] = "param2";
+ *                 argv[0] = "param1";
+ *                 argv[1] = "param2";
  */
 isc_result_t
 dyndb_init(isc_mem_t *mctx, const char *name,

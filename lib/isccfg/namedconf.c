@@ -1802,23 +1802,21 @@ static cfg_type_t cfg_type_dlz = {
 	 &cfg_rep_map, dlz_clausesets
 };
 
-/*% The "dyndb" statement syntax. */
+/*%
+ * The "dyndb" statement syntax.
+ */
 
-static cfg_clausedef_t
-dyndb_clauses[] = {
-	{ "database", &cfg_type_astring, 0 },
+static cfg_tuplefielddef_t dyndb_fields[] = {
+	{ "name", &cfg_type_astring, 0 },
+	{ "library", &cfg_type_qstring, 0 },
+	{ "parameters", &cfg_type_bracketed_text, 0 },
 	{ NULL, NULL, 0 }
 };
-static cfg_clausedef_t *
-dyndb_clausesets[] = {
-	dyndb_clauses,
-	NULL
-};
-static cfg_type_t cfg_type_dyndb = {
-	"dyndb", cfg_parse_named_map, cfg_print_map, cfg_doc_map,
-	 &cfg_rep_map, dyndb_clausesets
-};
 
+static cfg_type_t cfg_type_dyndb = {
+	"dyndb", cfg_parse_tuple, cfg_print_tuple, cfg_doc_tuple,
+	 &cfg_rep_tuple, dyndb_fields
+};
 
 /*%
  * Clauses that can be found within the 'key' statement.

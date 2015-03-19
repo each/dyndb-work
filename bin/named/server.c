@@ -1349,20 +1349,17 @@ static isc_result_t
 configure_dyndb(const cfg_obj_t *dyndb, isc_mem_t *mctx,
 		const dns_dyndbctx_t *dctx)
 {
-	isc_result_t result;
+	isc_result_t result = ISC_R_SUCCESS;
 	const cfg_obj_t *obj;
-	const char *name;
+	const char *name, *library;
 	unsigned int argc;
 	char **argv = NULL;
 
-	/* Get the name of the database. */
-	obj = cfg_map_getname(dyndb);
-	name = cfg_obj_asstring(obj);
+	/* Get the name of the dyndb instance and the library path . */
+	name = cfg_obj_asstring(cfg_tuple_get(dyndb, "name"));
+	library = cfg_obj_asstring(cfg_tuple_get(dyndb, "library"));
 
-	/* Get library name. */
-	obj = NULL;
-	CHECK(cfg_map_get(dyndb, "database", &obj));
-
+	obj = cfg_tuple_get(dyndb, "parameters");
 	if (obj != NULL) {
 		char *s = isc_mem_strdup(mctx, cfg_obj_asstring(obj));
 
@@ -1377,7 +1374,7 @@ configure_dyndb(const cfg_obj_t *dyndb, isc_mem_t *mctx,
 			goto cleanup;
 		}
 
-		result = dns_dyndb_load(argv[0], name, mctx,
+		result = dns_dyndb_load(library, name, mctx,
 					argc, argv, dctx);
 		isc_mem_free(mctx, s);
 		isc_mem_put(mctx, argv, argc * sizeof(*argv));
