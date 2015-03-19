@@ -219,9 +219,8 @@ unload_library(dyndb_implementation_t **impp)
 #endif	/* HAVE_DLFCN_H */
 
 isc_result_t
-dns_dyndb_load(const char *libname, const char *name, isc_mem_t *mctx,
-	       unsigned int argc, char **argv,
-	       const dns_dyndbctx_t *dctx)
+dns_dyndb_load(const char *libname, const char *name, const char *parameters,
+	       isc_mem_t *mctx, const dns_dyndbctx_t *dctx)
 {
 	isc_result_t result;
 	dyndb_implementation_t *implementation = NULL;
@@ -231,7 +230,7 @@ dns_dyndb_load(const char *libname, const char *name, isc_mem_t *mctx,
 	RUNTIME_CHECK(isc_once_do(&once, dyndb_initialize) == ISC_R_SUCCESS);
 
 	CHECK(load_library(mctx, libname, dctx, &implementation));
-	CHECK(implementation->register_func(mctx, name, argc, argv, dctx));
+	CHECK(implementation->register_func(mctx, name, parameters, dctx));
 
 	LOCK(&dyndb_lock);
 	APPEND(dyndb_implementations, implementation, link);

@@ -48,8 +48,7 @@ struct dns_dyndbctx {
 
 typedef isc_result_t dns_dyndb_register_t(isc_mem_t *mctx,
 					  const char *name,
-					  unsigned int argc,
-					  char **argv,
+					  const char *parameters,
 					  const dns_dyndbctx_t *dctx);
 typedef void dns_dyndb_destroy_t(void);
 
@@ -61,9 +60,8 @@ typedef int dns_dyndb_version_t(unsigned int *flags);
  */
 
 isc_result_t
-dns_dyndb_load(const char *libname, const char *name, isc_mem_t *mctx,
-	       unsigned int argc, char **argv,
-	       const dns_dyndbctx_t *dctx);
+dns_dyndb_load(const char *libname, const char *name, const char *parameters,
+	       isc_mem_t *mctx, const dns_dyndbctx_t *dctx);
 
 void
 dns_dyndb_cleanup(isc_boolean_t exiting);

@@ -16,7 +16,9 @@
 
 #include <config.h>
 
+#include <isc/commandline.h>
 #include <isc/hash.h>
+#include <isc/mem.h>
 #include <isc/lib.h>
 #include <isc/util.h>
 
@@ -55,14 +57,16 @@ dns_dyndb_version_t dyndb_version;
  *                 argv[1] = "param2";
  */
 isc_result_t
-dyndb_init(isc_mem_t *mctx, const char *name,
-	    unsigned int argc, char **argv, const dns_dyndbctx_t *dctx)
+dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
+	   const dns_dyndbctx_t *dctx)
 {
-	dns_dbimplementation_t *sampledb_imp_new = NULL;
 	isc_result_t result;
+	dns_dbimplementation_t *sampledb_imp_new = NULL;
+	unsigned int argc;
+	char **argv = NULL;
+	char *s = NULL;
 
 	REQUIRE(name != NULL);
-	REQUIRE(argv != NULL);
 	REQUIRE(dctx != NULL);
 
 	isc_lib_register();
@@ -81,8 +85,24 @@ dyndb_init(isc_mem_t *mctx, const char *name,
 	else if (result == ISC_R_SUCCESS)
 		sampledb_imp = sampledb_imp_new;
 
+	s = isc_mem_strdup(mctx, parameters);
+	if (s == NULL) {
+		result = ISC_R_NOMEMORY;
+		goto cleanup;
+	}
+
+	result = isc_commandline_strtoargv(mctx, s, &argc, &argv, 0);
+	if (result != ISC_R_SUCCESS)
+		goto cleanup;
+
 	/* Finally, create the instance. */
 	result = manager_create_db_instance(mctx, name, argc, argv, dctx);
+
+ cleanup:
+	if (s != NULL)
+		isc_mem_free(mctx, s);
+	if (argv != NULL)
+		isc_mem_put(mctx, argv, argc * sizeof(*argv));
 
 	return (result);
 }

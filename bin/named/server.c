@@ -1352,45 +1352,21 @@ configure_dyndb(const cfg_obj_t *dyndb, isc_mem_t *mctx,
 	isc_result_t result = ISC_R_SUCCESS;
 	const cfg_obj_t *obj;
 	const char *name, *library;
-	unsigned int argc;
-	char **argv = NULL;
 
 	/* Get the name of the dyndb instance and the library path . */
 	name = cfg_obj_asstring(cfg_tuple_get(dyndb, "name"));
 	library = cfg_obj_asstring(cfg_tuple_get(dyndb, "library"));
 
 	obj = cfg_tuple_get(dyndb, "parameters");
-	if (obj != NULL) {
-		char *s = isc_mem_strdup(mctx, cfg_obj_asstring(obj));
+	if (obj != NULL)
+		result = dns_dyndb_load(library, name,
+					cfg_obj_asstring(obj), mctx, dctx);
 
-		if (s == NULL) {
-			result = ISC_R_NOMEMORY;
-			goto cleanup;
-		}
-
-		result = isc_commandline_strtoargv(mctx, s, &argc, &argv, 0);
-		if (result != ISC_R_SUCCESS) {
-			isc_mem_free(mctx, s);
-			goto cleanup;
-		}
-
-		result = dns_dyndb_load(library, name, mctx,
-					argc, argv, dctx);
-		isc_mem_free(mctx, s);
-		isc_mem_put(mctx, argv, argc * sizeof(*argv));
-		if (result != ISC_R_SUCCESS)
-			goto cleanup;
-	}
-
-cleanup:
 	if (result != ISC_R_SUCCESS)
 		isc_log_write(ns_g_lctx, NS_LOGCATEGORY_GENERAL,
 		              NS_LOGMODULE_SERVER, ISC_LOG_ERROR,
 		              "dynamic database '%s' configuration failed: %s",
 		              name, isc_result_totext(result));
-	if (argv != NULL)
-		isc_mem_free(mctx, argv);
-
 	return (result);
 }
 
