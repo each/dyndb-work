@@ -108,7 +108,7 @@ load_library(isc_mem_t *mctx, const char *filename,
 	dns_dyndb_register_t *register_func = NULL;
 	dns_dyndb_destroy_t *destroy_func = NULL;
 	dns_dyndb_version_t *version_func = NULL;
-	int version;
+	int version, flags;
 
 	REQUIRE(args != NULL);
 	REQUIRE(impp != NULL && *impp == NULL);
@@ -121,7 +121,12 @@ load_library(isc_mem_t *mctx, const char *filename,
 	isc_buffer_putuint8(module_buf, 0);
 	isc_buffer_region(module_buf, &module_region);
 
-	handle = dlopen((char *)module_region.base, RTLD_LAZY);
+	flags = RTLD_NOW|RTLD_GLOBAL;
+#ifdef RTLD_DEEPBIND
+	flags |= RTLD_DEEPBIND;
+#endif
+
+	handle = dlopen((char *)module_region.base, flags);
 	if (handle == NULL) {
 		isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
 			      DNS_LOGMODULE_DYNDB, ISC_LOG_ERROR,
