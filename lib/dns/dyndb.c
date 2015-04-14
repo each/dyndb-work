@@ -102,9 +102,6 @@ load_library(isc_mem_t *mctx, const char *filename,
 	     dyndb_implementation_t **impp)
 {
 	isc_result_t result;
-	size_t module_size;
-	isc_buffer_t *module_buf = NULL;
-	isc_region_t module_region;
 	void *handle = NULL;
 	dyndb_implementation_t *imp;
 	dns_dyndb_register_t *register_func = NULL;
@@ -114,20 +111,12 @@ load_library(isc_mem_t *mctx, const char *filename,
 
 	REQUIRE(impp != NULL && *impp == NULL);
 
-	/* Build up the full path. */
-	module_size = strlen(filename) + 1;
-
-	CHECK(isc_buffer_allocate(mctx, &module_buf, module_size));
-	isc_buffer_putstr(module_buf, filename);
-	isc_buffer_putuint8(module_buf, 0);
-	isc_buffer_region(module_buf, &module_region);
-
 	flags = RTLD_NOW|RTLD_GLOBAL;
 #ifdef RTLD_DEEPBIND
 	flags |= RTLD_DEEPBIND;
 #endif
 
-	handle = dlopen((char *)module_region.base, flags);
+	handle = dlopen(filename, flags);
 	if (handle == NULL)
 		CHECK(ISC_R_FAILURE);
 
@@ -174,8 +163,6 @@ cleanup:
 			      filename, dlerror());
 	if (result != ISC_R_SUCCESS && handle != NULL)
 		dlclose(handle);
-	if (module_buf != NULL)
-		isc_buffer_free(&module_buf);
 
 	return (result);
 }
