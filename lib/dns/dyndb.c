@@ -247,6 +247,10 @@ dns_dyndb_cleanup(isc_boolean_t exiting) {
 
 	RUNTIME_CHECK(isc_once_do(&once, dyndb_initialize) == ISC_R_SUCCESS);
 
+	isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
+		      DNS_LOGMODULE_DYNDB, ISC_LOG_INFO,
+		      "unloading all DynDB drivers");
+
 	LOCK(&dyndb_lock);
 	elem = TAIL(dyndb_implementations);
 	while (elem != NULL) {
