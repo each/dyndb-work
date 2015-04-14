@@ -86,7 +86,7 @@ LIBDNS_EXTERNAL_DATA isc_logmodule_t dns_modules[] = {
 	{ "dns/crypto",		0 },
 	{ "dns/packets",	0 },
 	{ "dns/nta",		0 },
-	{ "dns/dynamic_db",	0 },
+	{ "dns/dyndb",		0 },
 	{ NULL, 		0 }
 };
 
