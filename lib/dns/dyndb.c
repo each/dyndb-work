@@ -131,6 +131,9 @@ load_library(isc_mem_t *mctx, const char *filename,
 	if (handle == NULL)
 		CHECK(ISC_R_FAILURE);
 
+	/* Clear dlerror */
+	dlerror();
+
 	CHECK(load_symbol(handle, filename, "dyndb_init",
 			  (void **)&register_func));
 	CHECK(load_symbol(handle, filename, "dyndb_destroy",
