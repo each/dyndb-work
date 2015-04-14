@@ -99,7 +99,6 @@ load_symbol(void *handle, const char *filename,
 
 static isc_result_t
 load_library(isc_mem_t *mctx, const char *filename,
-	     const dns_dyndbctx_t *args,
 	     dyndb_implementation_t **impp)
 {
 	isc_result_t result;
@@ -113,7 +112,6 @@ load_library(isc_mem_t *mctx, const char *filename,
 	dns_dyndb_version_t *version_func = NULL;
 	int version, flags;
 
-	REQUIRE(args != NULL);
 	REQUIRE(impp != NULL && *impp == NULL);
 
 	/* Build up the full path. */
@@ -233,7 +231,7 @@ dns_dyndb_load(const char *libname, const char *name, const char *parameters,
 
 	RUNTIME_CHECK(isc_once_do(&once, dyndb_initialize) == ISC_R_SUCCESS);
 
-	CHECK(load_library(mctx, libname, dctx, &implementation));
+	CHECK(load_library(mctx, libname, &implementation));
 	CHECK(implementation->register_func(mctx, name, parameters, dctx));
 
 	LOCK(&dyndb_lock);
