@@ -6,10 +6,11 @@
  *
  * It is completely up to implementation what to do.
  *
- * dynamic-db "name" {} sections in named.conf are independent so driver init()
- * and destroy() functions are called independently for each section even
- * if they reference the same driver/library. It is up to driver implementation
- * to detect and catch this situation if it is undesirable.
+ * dyndb <name> <driver> {} sections in named.conf are independent so
+ * driver init() and destroy() functions are called independently for
+ * each section even if they reference the same driver/library. It is
+ * up to driver implementation to detect and catch this situation if
+ * it is undesirable.
  *
  * Copyright (C) 2009-2015  Red Hat ; see COPYING for license
  */
@@ -45,13 +46,13 @@ dns_dyndb_version_t dyndb_version;
  * dyndb example-name "sample.so" { param1 param2 };
  * @endcode
  * 
- * @param[in] name User-defined string from dynamic-db "name" {}; definition
+ * @param[in] name User-defined string from dyndb "name" {}; definition
  *                 in named.conf.
  *                 The example above will have name = "example-name".
  * @param[in] argc Number of arg parameters
  *                 definition. The example above will have
  *                 argc = 2;
- * @param[in] argv User-defined strings from arg parameters in dynamic-db
+ * @param[in] argv User-defined strings from arg parameters in dyndb
  *                 definition. The example above will have
  *                 argv[0] = "param1";
  *                 argv[1] = "param2";
@@ -75,10 +76,11 @@ dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
 	isc_log_setcontext(dctx->lctx);
 	dns_log_setcontext(dctx->lctx);
 
-	if (isc_hashctx == NULL) {
-		isc_hash_ctxattach(dctx->hctx, &isc_hashctx);
-		inithash = ISC_TRUE;
-	}
+	if (isc_hashctx != NULL)
+		isc_hash_destroy();
+
+	isc_hash_ctxattach(dctx->hctx, &isc_hashctx);
+	inithash = ISC_TRUE;
 
 	log_info("registering dynamic sample driver for instance '%s'", name);
 
@@ -119,7 +121,7 @@ dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
  * Driver destroy is called on every reload and then once during shutdown.
  *
  * @warning
- * It is also called for every dynamic-db section in named.conf but there is no
+ * It is also called for every dyndb section in named.conf but there is no
  * way how to find out for which instance.
  */
 void
@@ -130,6 +132,7 @@ dyndb_destroy(void) {
 
 	destroy_manager();
 	isc_hash_ctxdetach(&isc_hashctx);
+	dns_lib_shutdown();
 }
 
 /*
