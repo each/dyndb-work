@@ -204,6 +204,9 @@ unload_library(dyndb_implementation_t **impp)
 
 	imp = *impp;
 
+	if (imp->handle != NULL)
+		dlclose(imp->handle);
+
 	isc_mem_putanddetach(&imp->mctx, imp, sizeof(dyndb_implementation_t));
 
 	*impp = NULL;
