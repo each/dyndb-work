@@ -130,10 +130,8 @@ load_library(isc_mem_t *mctx, const char *filename,
 #endif
 
 	handle = dlopen((char *)module_region.base, flags);
-	if (handle == NULL) {
-		result = ISC_R_FAILURE;
-		goto cleanup;
-	}
+	if (handle == NULL)
+		CHECK(ISC_R_FAILURE);
 
 	CHECK(load_symbol(handle, filename, "dyndb_init",
 			  (void **)&register_func));
@@ -155,10 +153,8 @@ load_library(isc_mem_t *mctx, const char *filename,
 
 
 	imp = isc_mem_get(mctx, sizeof(dyndb_implementation_t));
-	if (imp == NULL) {
-		result = ISC_R_NOMEMORY;
-		goto cleanup;
-	}
+	if (imp == NULL)
+		CHECK(ISC_R_NOMEMORY);
 
 	imp->mctx = NULL;
 	isc_mem_attach(mctx, &imp->mctx);
