@@ -48,6 +48,7 @@ EOF
     }
 
     out=`$DIG $DIGOPTS +noall +answer -t $type -q $host`
+    echo $out > a.out.$n
     lines=`echo "$out" | grep "$ip" | wc -l`
     [ $lines -eq 1 ] || {
 	[ "$should_fail" ] || \
@@ -56,6 +57,7 @@ EOF
     }
 
     out=`$DIG $DIGOPTS +noall +answer -x $ip`
+    echo $out > ptr.out.$n
     lines=`echo "$out" | grep "$host" | wc -l`
     [ $lines -eq 1 ] || {
 	[ "$should_fail" ] || \

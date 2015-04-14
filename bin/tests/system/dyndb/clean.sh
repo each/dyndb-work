@@ -19,3 +19,5 @@
 #
 rm -f ns1/named.memstats
 rm -f ns1/update.txt
+rm -f a.out.*
+rm -f ptr.out.*
