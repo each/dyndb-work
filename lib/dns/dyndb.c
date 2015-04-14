@@ -69,7 +69,9 @@ dyndb_initialize(void) {
 
 #if HAVE_DLFCN_H
 static isc_result_t
-load_symbol(void *handle, const char *symbol_name, void **symbolp) {
+load_symbol(void *handle, const char *filename,
+	    const char *symbol_name, void **symbolp)
+{
 	const char *errmsg;
 	void *symbol;
 
@@ -83,8 +85,9 @@ load_symbol(void *handle, const char *symbol_name, void **symbolp) {
 			errmsg = "returned function pointer is NULL";
 		isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
 			      DNS_LOGMODULE_DYNDB, ISC_LOG_ERROR,
-			      "failed to lookup symbol %s: %s",
-			      symbol_name, errmsg);
+			      "failed to lookup symbol %s in "
+			      "dyndb module '%s': %s",
+			      symbol_name, filename, errmsg);
 		return (ISC_R_FAILURE);
 	}
 	dlerror();
@@ -128,20 +131,16 @@ load_library(isc_mem_t *mctx, const char *filename,
 
 	handle = dlopen((char *)module_region.base, flags);
 	if (handle == NULL) {
-		isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
-			      DNS_LOGMODULE_DYNDB, ISC_LOG_ERROR,
-			      "failed to dynamically load driver '%s': %s",
-			      filename, dlerror());
 		result = ISC_R_FAILURE;
 		goto cleanup;
 	}
 	dlerror();
 
-	CHECK(load_symbol(handle, "dyndb_init",
+	CHECK(load_symbol(handle, filename, "dyndb_init",
 			  (void **)&register_func));
-	CHECK(load_symbol(handle, "dyndb_destroy",
+	CHECK(load_symbol(handle, filename, "dyndb_destroy",
 			  (void **)&destroy_func));
-	CHECK(load_symbol(handle, "dyndb_version",
+	CHECK(load_symbol(handle, filename, "dyndb_version",
 			  (void **)&version_func));
 
 	version = version_func(NULL);
@@ -172,6 +171,11 @@ load_library(isc_mem_t *mctx, const char *filename,
 	*impp = imp;
 
 cleanup:
+	if (result != ISC_R_SUCCESS)
+		isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
+			      DNS_LOGMODULE_DYNDB, ISC_LOG_ERROR,
+			      "failed to dynamically load driver '%s': %s",
+			      filename, dlerror());
 	if (result != ISC_R_SUCCESS && handle != NULL)
 		dlclose(handle);
 	if (module_buf != NULL)
