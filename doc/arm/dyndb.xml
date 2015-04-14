@@ -30,7 +30,7 @@
     as the one used internally by BIND.
   </para>
   <para>
-    A DynDB module supporting LDAP has been created by RedHat
+    A DynDB module supporting LDAP has been created by Red Hat
     and is available from
     <ulink url="https://fedorahosted.org/bind-dyndb-ldap/"
       >https://fedorahosted.org/bind-dyndb-ldap/</ulink>.
@@ -71,7 +71,7 @@
       For guidance in implementation of DynDB modules, the directory
       <filename>bin/tests/system/dyndb/driver</filename>.
       contains a basic DynDB module.
-      The example sets up two zones, whose name is passed
+      The example sets up two zones, whose names are passed
       to the module as arguments in the <command>dyndb</command>
       statement:
     </para>
