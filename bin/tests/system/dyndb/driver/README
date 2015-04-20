@@ -55,11 +55,11 @@ reload/reconfig.
 Hints for code readers:
 - Driver initialization starts in driver.c: dyndb_init() function.
 - New database implementation is registered by calling dns_db_register()
-  and passing function pointer to it. This sample uses own function
+  and passing a function pointer to it. This sample uses the function
   create_db() to initialize the database.
 - Zones are created later in instance.c: load_sample_instance_zones().
 - Database entry points are in structure db.c: dns_dbmethods_t
   sampledb_methods
-- sampledb_methods points to own implementation of database interface.
-  See db.c: addrdataset() implementation and look at how RBT database
-  instance is wrapped into an additional layer of logic.
+- sampledb_methods points to an implementation of the database interface.
+  See the db.c: addrdataset() implementation and look at how the RBT
+  database instance is wrapped into an additional layer of logic.
