@@ -132,4 +132,19 @@ status=`expr $status + $ret`
 test_del test4.ipv6.example.nil. AAAA || ret=1
 status=`expr $status + $ret`
 
+echo "I:checking dyndb still works after reload"
+$RNDC -c ../common/rndc.conf -s 10.53.0.1 -p 9953 reload 2>&1 | sed 's/^/I:ns1 /'
+
+test_add test5.ipv4.example.nil. A "10.53.0.10" || ret=1
+status=`expr $status + $ret`
+
+test_add test6.ipv6.example.nil. AAAA "2001:db8::1" || ret=1
+status=`expr $status + $ret`
+
+test_del test5.ipv4.example.nil. A || ret=1
+status=`expr $status + $ret`
+
+test_del test6.ipv6.example.nil. AAAA || ret=1
+status=`expr $status + $ret`
+
 exit $status
