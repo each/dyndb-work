@@ -117,13 +117,13 @@ status=`expr $status + $ret`
 test_add test3.example.nil. A "10.53.0.12" || ret=1
 status=`expr $status + $ret`
 
-test_del test3.example.nil. A || ret=1
+test_del test1.example.nil. A || ret=1
 status=`expr $status + $ret`
 
 test_del test2.example.nil. A || ret=1
 status=`expr $status + $ret`
 
-test_del test1.example.nil. A || ret=1
+test_del test3.example.nil. A || ret=1
 status=`expr $status + $ret`
 
 exit $status
