@@ -111,6 +111,11 @@ load_library(isc_mem_t *mctx, const char *filename,
 
 	REQUIRE(impp != NULL && *impp == NULL);
 
+	isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
+		      DNS_LOGMODULE_DYNDB, ISC_LOG_INFO,
+		      "loading DynDB driver '%s'",
+		      filename);
+
 	flags = RTLD_NOW|RTLD_GLOBAL;
 #ifdef RTLD_DEEPBIND
 	flags |= RTLD_DEEPBIND;
