@@ -19,5 +19,7 @@
 #
 rm -f ns1/named.memstats
 rm -f ns1/update.txt
-rm -f a.out.*
-rm -f ptr.out.*
+rm -f added.a.out.*
+rm -f added.ptr.out.*
+rm -f deleted.a.out.*
+rm -f deleted.ptr.out.*
