@@ -72,7 +72,7 @@ test_del() {
     host="$1"
     type="$2"
 
-    ip=`$DIG $DIGOPTS +short $host`
+    ip=`$DIG $DIGOPTS +short $host $type`
 
     cat <<EOF > ns1/update.txt
 server 10.53.0.1 5300
