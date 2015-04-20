@@ -64,7 +64,6 @@ dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
 	isc_result_t result;
 	dns_dbimplementation_t *sampledb_imp_new = NULL;
 	unsigned int argc;
-	isc_boolean_t inithash = ISC_FALSE;
 	char **argv = NULL;
 	char *s = NULL;
 
@@ -76,11 +75,8 @@ dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
 	isc_log_setcontext(dctx->lctx);
 	dns_log_setcontext(dctx->lctx);
 
-	if (isc_hashctx != NULL)
-		isc_hash_destroy();
-
+	isc_hashctx = NULL;
 	isc_hash_ctxattach(dctx->hctx, &isc_hashctx);
-	inithash = ISC_TRUE;
 
 	log_info("registering dynamic sample driver for instance '%s'", name);
 
@@ -106,8 +102,10 @@ dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
 	result = manager_create_db_instance(mctx, name, argc, argv, dctx);
 
  cleanup:
-	if (result != ISC_R_SUCCESS && inithash)
-		isc_hash_ctxdetach(&isc_hashctx);
+	if (result != ISC_R_SUCCESS) {
+		isc_hash_t *hctx = isc_hashctx;
+		isc_hash_ctxdetach(&hctx);
+	}
 
 	if (s != NULL)
 		isc_mem_free(mctx, s);
@@ -126,12 +124,14 @@ dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
  */
 void
 dyndb_destroy(void) {
+	isc_hash_t *hctx = isc_hashctx;
+
 	/* Only unregister the implementation if it was registered by us. */
 	if (sampledb_imp != NULL)
 		dns_db_unregister(&sampledb_imp);
 
 	destroy_manager();
-	isc_hash_ctxdetach(&isc_hashctx);
+	isc_hash_ctxdetach(&hctx);
 	dns_lib_shutdown();
 }
 
