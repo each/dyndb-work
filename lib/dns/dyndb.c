@@ -54,7 +54,12 @@ struct dyndb_implementation {
 	LINK(dyndb_implementation_t)	link;
 };
 
-/* List of implementations. Locked by dyndb_lock. */
+/*
+ * List of dyndb implementations. Locked by dyndb_lock.
+ *
+ * These are stored here so they can be cleaned up on shutdown.
+ * (The order in which they are stored is not important.)
+ */
 static LIST(dyndb_implementation_t) dyndb_implementations;
 
 /* Locks dyndb_implementations. */
@@ -116,7 +121,7 @@ load_library(isc_mem_t *mctx, const char *filename,
 		      "loading DynDB driver '%s'",
 		      filename);
 
-	flags = RTLD_NOW|RTLD_GLOBAL;
+	flags = RTLD_NOW|RTLD_LOCAL;
 #ifdef RTLD_DEEPBIND
 	flags |= RTLD_DEEPBIND;
 #endif
