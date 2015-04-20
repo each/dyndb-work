@@ -48,7 +48,7 @@ EOF
     }
 
     out=`$DIG $DIGOPTS +noall +answer -t $type -q $host`
-    echo $out > a.out.$n
+    echo $out > added.a.out.$n
     lines=`echo "$out" | grep "$ip" | wc -l`
     [ $lines -eq 1 ] || {
 	[ "$should_fail" ] || \
@@ -57,7 +57,7 @@ EOF
     }
 
     out=`$DIG $DIGOPTS +noall +answer -x $ip`
-    echo $out > ptr.out.$n
+    echo $out > added.ptr.out.$n
     lines=`echo "$out" | grep "$host" | wc -l`
     [ $lines -eq 1 ] || {
 	[ "$should_fail" ] || \
@@ -88,6 +88,7 @@ EOF
     }
 
     out=`$DIG $DIGOPTS +noall +answer -t $type -q $host`
+    echo $out > deleted.a.out.$n
     lines=`echo "$out" | grep "$ip" | wc -l`
     [ $lines -eq 0 ] || {
 	[ "$should_fail" ] || \
@@ -96,6 +97,7 @@ EOF
     }
 
     out=`$DIG $DIGOPTS +noall +answer -x $ip`
+    echo $out > deleted.ptr.out.$n
     lines=`echo "$out" | grep "$host" | wc -l`
     [ $lines -eq 0 ] || {
 	[ "$should_fail" ] || \
