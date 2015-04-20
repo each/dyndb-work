@@ -117,6 +117,9 @@ status=`expr $status + $ret`
 test_add test3.ipv4.example.nil. A "10.53.0.12" || ret=1
 status=`expr $status + $ret`
 
+test_add test4.ipv6.example.nil. AAAA "2001:db8::1" || ret=1
+status=`expr $status + $ret`
+
 test_del test1.ipv4.example.nil. A || ret=1
 status=`expr $status + $ret`
 
@@ -124,6 +127,9 @@ test_del test2.ipv4.example.nil. A || ret=1
 status=`expr $status + $ret`
 
 test_del test3.ipv4.example.nil. A || ret=1
+status=`expr $status + $ret`
+
+test_del test4.ipv6.example.nil. AAAA || ret=1
 status=`expr $status + $ret`
 
 exit $status
