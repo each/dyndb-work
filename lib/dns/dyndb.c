@@ -133,10 +133,6 @@ load_library(isc_mem_t *mctx, const char *filename,
 	/* Clear dlerror */
 	dlerror();
 
-	CHECK(load_symbol(handle, filename, "dyndb_init",
-			  (void **)&register_func));
-	CHECK(load_symbol(handle, filename, "dyndb_destroy",
-			  (void **)&destroy_func));
 	CHECK(load_symbol(handle, filename, "dyndb_version",
 			  (void **)&version_func));
 
@@ -151,6 +147,10 @@ load_library(isc_mem_t *mctx, const char *filename,
 		CHECK(ISC_R_FAILURE);
 	}
 
+	CHECK(load_symbol(handle, filename, "dyndb_init",
+			  (void **)&register_func));
+	CHECK(load_symbol(handle, filename, "dyndb_destroy",
+			  (void **)&destroy_func));
 
 	imp = isc_mem_get(mctx, sizeof(dyndb_implementation_t));
 	if (imp == NULL)
