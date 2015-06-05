@@ -44,6 +44,7 @@ struct dns_dyndbctx {
 	dns_zonemgr_t	*zmgr;
 	isc_task_t	*task;
 	isc_timermgr_t	*timermgr;
+	isc_boolean_t	*refvar;
 };
 
 #define DNS_DYNDBCTX_MAGIC	ISC_MAGIC('D', 'd', 'b', 'c')

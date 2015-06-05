@@ -70,9 +70,16 @@ dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
 	REQUIRE(name != NULL);
 	REQUIRE(dctx != NULL);
 
-	isc_lib_register();
-	isc_log_setcontext(dctx->lctx);
-	dns_log_setcontext(dctx->lctx);
+	/*
+	 * Depending on how dlopen() was called, we may not have
+	 * access to named's global namespace, in which case we need
+	 * to initialize libisc/libdns
+	 */
+	if (dctx->refvar != &isc_bind9) {
+		isc_lib_register();
+		isc_log_setcontext(dctx->lctx);
+		dns_log_setcontext(dctx->lctx);
+	}
 
 	if (isc_hashctx != NULL && isc_hashctx != dctx->hctx)
 		isc_hash_ctxdetach(&isc_hashctx);
