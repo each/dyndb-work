@@ -142,6 +142,7 @@ static cfg_type_t cfg_type_zone;
 static cfg_type_t cfg_type_zoneopts;
 static cfg_type_t cfg_type_filter_aaaa;
 static cfg_type_t cfg_type_dlz;
+static cfg_type_t cfg_type_dnstap;
 
 /*% tkey-dhkey */
 
@@ -914,21 +915,23 @@ static cfg_type_t cfg_type_fetchquota = {
 static const char *response_enums[] = { "drop", "fail", NULL };
 
 static isc_result_t
-parse_optional_response(cfg_parser_t *pctx, const cfg_type_t *type,
-			cfg_obj_t **ret)
+parse_optional_enum(cfg_parser_t *pctx, const cfg_type_t *type,
+		    cfg_obj_t **ret)
 {
 	return (parse_enum_or_other(pctx, type, &cfg_type_void, ret));
 }
 
 static void
-doc_optional_response(cfg_printer_t *pctx, const cfg_type_t *type) {
+doc_optional_enum(cfg_printer_t *pctx, const cfg_type_t *type) {
 	UNUSED(type);
-	cfg_print_cstr(pctx, "[ ( drop | fail ) ]");
+	cfg_print_cstr(pctx, "[ ");
+	cfg_doc_enum(pctx, type);
+	cfg_print_cstr(pctx, " ]");
 }
 
 static cfg_type_t cfg_type_responsetype = {
-	"responsetype", parse_optional_response, cfg_print_ustring,
-	doc_optional_response, &cfg_rep_string, response_enums
+	"responsetype", parse_optional_enum, cfg_print_ustring,
+	doc_optional_enum, &cfg_rep_string, response_enums
 };
 
 static cfg_tuplefielddef_t fetchesper_fields[] = {
@@ -999,6 +1002,19 @@ options_clauses[] = {
 	{ "cookie-algorithm", &cfg_type_cookiealg, 0 },
 	{ "coresize", &cfg_type_size, 0 },
 	{ "datasize", &cfg_type_size, 0 },
+#ifdef DNSTAP
+	{ "dnstap", &cfg_type_dnstap, 0 },
+	{ "dnstap-socket", &cfg_type_qstring, 0 },
+	{ "dnstap-send-identity", &cfg_type_boolean, 0 },
+	{ "dnstap-send-version", &cfg_type_boolean, 0 },
+#else
+	{ "dnstap", &cfg_type_dnstap, CFG_CLAUSEFLAG_NOTCONFIGURED },
+	{ "dnstap-socket", &cfg_type_qstring, CFG_CLAUSEFLAG_NOTCONFIGURED },
+	{ "dnstap-send-identity", &cfg_type_boolean,
+	  CFG_CLAUSEFLAG_NOTCONFIGURED },
+	{ "dnstap-send-version", &cfg_type_boolean,
+	  CFG_CLAUSEFLAG_NOTCONFIGURED },
+#endif /* DNSTAP */
 	{ "session-keyfile", &cfg_type_qstringornone, 0 },
 	{ "session-keyname", &cfg_type_astring, 0 },
 	{ "session-keyalg", &cfg_type_astring, 0 },
@@ -1161,6 +1177,44 @@ static cfg_type_t cfg_type_masterstyle = {
 	&cfg_rep_string, &masterstyle_enums
 };
 
+/*%
+ *  dnstap {
+ *      <message type> [query | response] ;
+ *      ...
+ *  }
+ *  
+ *  ... where message type is one of:
+ *  stub, client, resolver, auth, forwarder
+ */
+static const char *dnstap_types[] = { "stub", "client", "resolver",
+				      "auth", "forwarder", NULL };
+
+static const char *dnstap_modes[] = { "query", "response", NULL };
+
+static cfg_type_t cfg_type_dnstap_type = {
+	"dnstap_type", cfg_parse_enum, cfg_print_ustring,
+	cfg_doc_enum, &cfg_rep_string, dnstap_types
+};
+
+static cfg_type_t cfg_type_dnstap_mode = {
+	"dnstap_mode", parse_optional_enum, cfg_print_ustring,
+	doc_optional_enum, &cfg_rep_string, dnstap_modes
+};
+
+static cfg_tuplefielddef_t dnstap_fields[] = {
+	{ "type", &cfg_type_dnstap_type, 0 },
+	{ "mode", &cfg_type_dnstap_mode, 0 },
+	{ NULL, NULL, 0 }
+};
+
+static cfg_type_t cfg_type_dnstap_entry = {
+	"dnstap_value", cfg_parse_tuple, cfg_print_tuple,
+	cfg_doc_tuple, &cfg_rep_tuple, dnstap_fields };
+
+static cfg_type_t cfg_type_dnstap = {
+	"dnstap", cfg_parse_bracketed_list, cfg_print_bracketed_list,
+	cfg_doc_bracketed_list, &cfg_rep_list, &cfg_type_dnstap_entry
+};
 
 /*%
  *  response-policy {
