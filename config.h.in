@@ -167,6 +167,9 @@ int sigwait(const unsigned int *set, int *sig);
 /* Define if you cannot bind() before connect() for TCP sockets. */
 #undef BROKEN_TCP_BIND_BEFORE_CONNECT
 
+/* Define to 1 to enable dnstap support */
+#undef DNSTAP
+
 /* Define to enable "rrset-order fixed" syntax. */
 #undef DNS_RDATASET_FIXED
 
