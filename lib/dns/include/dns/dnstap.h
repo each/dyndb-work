@@ -25,6 +25,8 @@
 #include <isc/region.h>
 #include <isc/types.h>
 
+#include <dns/types.h>
+
 /*%
  * Dnstap message types:
  *
@@ -40,28 +42,33 @@
  * FORWARDER RESPONSE: FR
  */
 
-#define NS_DTTYPE_SQ 0x0001
-#define NS_DTTYPE_SR 0x0002
-#define NS_DTTYPE_CQ 0x0004
-#define NS_DTTYPE_CR 0x0008
-#define NS_DTTYPE_AQ 0x0010
-#define NS_DTTYPE_AR 0x0020
-#define NS_DTTYPE_RQ 0x0040
-#define NS_DTTYPE_RR 0x0080
-#define NS_DTTYPE_FQ 0x0100
-#define NS_DTTYPE_FR 0x0200
+#define DNS_DTTYPE_SQ 0x0001
+#define DNS_DTTYPE_SR 0x0002
+#define DNS_DTTYPE_CQ 0x0004
+#define DNS_DTTYPE_CR 0x0008
+#define DNS_DTTYPE_AQ 0x0010
+#define DNS_DTTYPE_AR 0x0020
+#define DNS_DTTYPE_RQ 0x0040
+#define DNS_DTTYPE_RR 0x0080
+#define DNS_DTTYPE_FQ 0x0100
+#define DNS_DTTYPE_FR 0x0200
 
-typedef isc_uint16_t ns_dtmsgtype_t;
+#define DNS_DTTYPE_QUERY \
+	(DNS_DTTYPE_SQ|DNS_DTTYPE_CQ|DNS_DTTYPE_AQ|DNS_DTTYPE_RQ|DNS_DTTYPE_FQ)
+#define DNS_DTTYPE_RESPONSE \
+	(DNS_DTTYPE_SR|DNS_DTTYPE_CR|DNS_DTTYPE_AR|DNS_DTTYPE_RR|DNS_DTTYPE_FR)
 
-typedef enum ns_commtype_t {
-	ns_commtype_udp,	/*% UDP socket */
-	ns_commtype_tcp_accept, /*% TCP accept socket */
-	ns_commtype_tcp,	/*% TCP handler socket */
-	ns_commtype_local,	/*% AF_UNIX socket */
-	ns_commtype_raw		/*% Raw - not DNS format */
-};
+typedef enum {
+	dns_commtype_udp,	 /*% UDP socket */
+	dns_commtype_tcp_accept, /*% TCP accept socket */
+	dns_commtype_tcp,	 /*% TCP handler socket */
+	dns_commtype_local,	 /*% AF_UNIX socket */
+	dns_commtype_raw	 /*% Raw - not DNS format */
+} dns_commtype_t;
 
-typedef struct ns_dtenv {
+typedef struct dns_dtenv {
+	isc_mem_t *mctx;
+
 	struct fstrm_iothr *iothr;
 	struct fstrm_iothr_queue *ioq;
 
@@ -69,22 +76,29 @@ typedef struct ns_dtenv {
 	isc_textregion_t *version;
 
 	isc_uint16_t msgtypes;
-} ns_dtenv_t;
+} dns_dtenv_t;
 
 isc_result_t
-ns_dt_create(const char *sockpath, unsigned int workers, ns_dtenv_t **envp);
+dns_dt_create(isc_mem_t *mctx, const char *sockpath,
+	     unsigned int workers, ns_dtenv_t **envp);
 
 isc_result_t
-ns_dt_init(ns_dtenv_t *env);
+dns_dt_setidentity(ns_dtnev_t *env, const char *identity);
+
+isc_result_t
+dns_dt_setversion(ns_dtnev_t *env, const char *version);
+
+isc_result_t
+dns_dt_init(ns_dtenv_t *env);
 
 void
-ns_dt_delete(ns_dtenv_t *env);
+dns_dt_delete(ns_dtenv_t *env);
 
 void
-ns_dt_send(ns_dtenv_t *env, ns_dtmsgtype_t msgtype,
-	   struct sockaddr_storage *sock, ns_commtype_t commtype,
-	   dns_name_t *zone, dns_message_t *message,
-	   isc_time_t *qtime, isc_time_t *rtime,
-	   isc_buffer_t *buf);
+dns_dt_send(ns_dtenv_t *env, dns_dtmsgtype_t msgtype,
+	    struct sockaddr_storage *sock, ns_commtype_t commtype,
+	    dns_name_t *zone, dns_message_t *message,
+	    isc_time_t *qtime, isc_time_t *rtime,
+	    isc_buffer_t *buf);
 
 #endif /* _DNSTAP_H */

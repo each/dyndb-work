@@ -75,6 +75,7 @@ typedef ISC_LIST(dns_dns64_t)			dns_dns64list_t;
 typedef struct dns_dnsseckey			dns_dnsseckey_t;
 typedef ISC_LIST(dns_dnsseckey_t)		dns_dnsseckeylist_t;
 typedef isc_uint8_t				dns_dsdigest_t;
+typedef isc_uint16_t 				dns_dtmsgtype_t;
 typedef struct dns_dumpctx			dns_dumpctx_t;
 typedef struct dns_ednsopt			dns_ednsopt_t;
 typedef struct dns_fetch			dns_fetch_t;
