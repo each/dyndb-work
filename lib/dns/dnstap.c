@@ -292,6 +292,62 @@ dnstap_type(dns_dtmsgtype_t msgtype) {
 	}
 }
 
+static void
+cpbuf(isc_buffer_t *buf, ProtobufCBinaryData *p, protobuf_c_boolean *has) {
+	p->data = isc_buffer_base(buf);
+	p->len = isc_buffer_usedlength(buf);
+	*has = 1;
+}
+
+static void
+setaddr(dtmsg_t *dm, struct sockaddr_storage *ss, dns_commtype_t ct,
+	ProtobufCBinaryData *addr, protobuf_c_boolean *has_addr,
+	isc_uint32_t *port, protobuf_c_boolean *has_port)
+{
+	if (ss->ss_family != AF_INET6 && ss->ss_family != AF_INET) {
+		/* TODO: log error */
+		return;
+	}
+
+	if (ct != dns_commtype_udp && ct != dns_commtype_tcp) {
+		/* TODO: log error */
+		return;
+	}
+
+	if (ss->ss_family == AF_INET6) {
+		struct sockaddr_in6 *s = (struct sockaddr_in6 *) ss;
+
+		dm->m.socket_family = DNSTAP__SOCKET_FAMILY__INET6;
+		dm->m.has_socket_family = 1;
+
+		addr->data = s->sin6_addr.s6_addr;
+		addr->len = 16;
+		*has_addr = 1;
+
+		*port = ntohs(s->sin6_port);
+		*has_port = 1;
+	} else {
+		struct sockaddr_in *s = (struct sockaddr_in *) ss;
+		dm->m.socket_family = DNSTAP__SOCKET_FAMILY__INET;
+		dm->m.has_socket_family = 1;
+
+		addr->data = (uint8_t *) &s->sin_addr.s_addr;
+		addr->len = 4;
+		*has_addr = 1;
+
+		*port = ntohs(s->sin_port);
+		*has_port = 1;
+	}
+
+	if (ct == dns_commtype_udp) {
+		dm->m.socket_protocol = DNSTAP__SOCKET_PROTOCOL__UDP;
+		dm->m.has_socket_protocol = 1;
+	} else {
+		dm->m.socket_protocol = DNSTAP__SOCKET_PROTOCOL__UDP;
+		dm->m.has_socket_protocol = 1;
+	}
+}
+
 void
 dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	    struct sockaddr_storage *sock, dns_commtype_t commtype,
@@ -325,6 +381,8 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 		dm.m.has_query_time_sec = 1;
 		dm.m.query_time_nsec = isc_time_nanoseconds(t);
 		dm.m.has_query_time_nsec = 1;
+
+		cpbuf(buf, &dm.m.query_message, &dm.m.has_query_message);
 	} else if ((msgtype & DNS_DTTYPE_RESPONSE) != 0) {
 		if (rtime != NULL)
 			t = rtime;
@@ -333,9 +391,34 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 		dm.m.has_response_time_sec = 1;
 		dm.m.response_time_nsec = isc_time_nanoseconds(t);
 		dm.m.has_response_time_nsec = 1;
-	}
-	/* XXX copy 'buf' into to dm */
 
+		cpbuf(buf, &dm.m.response_message, &dm.m.has_response_message);
+	} else {
+		/* TODO log error */
+		return;
+	}
+
+	switch (msgtype) {
+	case DNS_DTTYPE_AQ:
+	case DNS_DTTYPE_AR:
+	case DNS_DTTYPE_CQ:
+	case DNS_DTTYPE_CR:
+		setaddr(&dm, sock, commtype,
+			&dm.m.query_address, &dm.m.has_query_address,
+			&dm.m.query_port, &dm.m.has_query_port);
+		break;
+	case DNS_DTTYPE_RQ:
+	case DNS_DTTYPE_RR:
+	case DNS_DTTYPE_FQ:
+	case DNS_DTTYPE_FR:
+		setaddr(&dm, sock, commtype,
+			&dm.m.response_address, &dm.m.has_response_address,
+			&dm.m.response_port, &dm.m.has_response_port);
+		break;
+	default:
+		/* TODO: log error */
+		break;
+	}
 
 	if (pack_dt(&dm.d, &dm.buf, &dm.len) == ISC_R_SUCCESS)
 		send_dt(env, dm.buf, dm.len);

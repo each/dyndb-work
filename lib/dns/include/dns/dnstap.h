@@ -75,7 +75,7 @@ typedef struct dns_dtenv {
 	isc_region_t identity;
 	isc_region_t version;
 
-	isc_uint16_t msgtypes;
+	dns_dtmsgtype_t msgtypes;
 } dns_dtenv_t;
 
 isc_result_t
