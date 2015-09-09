@@ -213,6 +213,6 @@ dnstap.@O@: dnstap.c dnstap.pb-c.c dnstap.pb-c.h
 dnstap.pb-c.c dnstap.pb-c.h: dnstap.proto
 	$(PROTOC_C) --c_out=. dnstap.proto
 
-dnstap.pb-c.@O@: dnstap/dnstap.pb-c.c dnstap/dnstap.pb-c.h
+dnstap.pb-c.@O@: dnstap.pb-c.c dnstap.pb-c.h
 
 spnego.@O@: spnego_asn1.c spnego.h

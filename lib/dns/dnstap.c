@@ -18,7 +18,10 @@
 
 #include <config.h>
 
+#include <isc/buffer.h>
 #include <isc/mem.h>
+#include <isc/sockaddr.h>
+#include <isc/time.h>
 #include <isc/types.h>
 #include <isc/util.h>
 
@@ -26,15 +29,26 @@
 #include <dns/name.h>
 #include <dns/message.h>
 
+#ifdef DNSTAP
+#include "dnstap.pb-c.h"
+#include <protobuf-c/protobuf-c.h>
+#endif /* DNSTAP */
+
 #define DNSTAP_CONTENT_TYPE	"protobuf:dnstap.Dnstap"
 #define DNSTAP_INITIAL_BUF_SIZE 256
 
 typedef struct dtmsg {
 	void *buf;
-	size_t *len;
+	size_t len;
 	Dnstap__Dnstap d;
 	Dnstap__Message m;
 } dtmsg_t;
+
+#define CHECK(x) do { \
+	result = (x); \
+	if (result != ISC_R_SUCCESS) \
+		goto cleanup; \
+	} while (0)
 
 isc_result_t
 dns_dt_create(isc_mem_t *mctx, const char *sockpath,
@@ -43,25 +57,29 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 #ifdef DNSTAP
 	isc_result_t result = ISC_R_SUCCESS;
 	fstrm_res res;
-	struct dns_dtenv_t *env = NULL;
 	struct fstrm_iothr_options *fopt = NULL;
 	struct fstrm_unix_writer_options *fuwopt = NULL;
 	struct fstrm_writer *fw = NULL;
 	struct fstrm_writer_options *fwopt = NULL;
+	dns_dtenv_t *env = NULL;
 
 	/* TODO: log "opening dnstap socket %s", sockpath */
 
-	env = isc_mem_get(mctx, sizeof(*env));
+	env = isc_mem_get(mctx, sizeof(dns_dtenv_t));
 	if (env == NULL)
-		return (ISC_R_NOMEMORY);
+		CHECK(ISC_R_NOMEMORY);
 
-	memset(env, 0, sizeof(*env));
+	memset(env, 0, sizeof(dns_dtenv_t));
 
 	fwopt = fstrm_writer_options_init();
+	if (fwopt == NULL)
+		CHECK(ISC_R_NOMEMORY);
+
 	res = fstrm_writer_options_add_content_type(fwopt,
 					    DNSTAP_CONTENT_TYPE,
 					    sizeof(DNSTAP_CONTENT_TYPE) - 1);
-	RUNTIME_CHECK(res == fstrm_res_success);
+	if (res != fstrm_res_success)
+		CHECK(ISC_R_FAILURE);
 
 	fuwopt = fstrm_unix_writer_options_init();
 	fstrm_unix_writer_options_set_socket_path(fuwopt, sockpath);
@@ -75,15 +93,30 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 	if (env->iothr == NULL) {
 		/* TODO: log "fstrm_iothr_init failed" */
 		fstrm_writer_destroy(&fw);
-		isc_mem_put(mctx, env)
-		result = ISC_R_FAILURE;
+		CHECK(ISC_R_FAILURE);
 	}
 
 	isc_mem_attach(mctx, &env->mctx);
 
-	fstrm_iothr_options_destroy(&fopt);
-	fstrm_unix_writer_options_destroy(&fuwopt);
-	fstrm_writer_options_destroy(&fwopt);
+	*envp = env;
+
+ cleanup:
+	if (fopt != NULL)
+		fstrm_iothr_options_destroy(&fopt);
+
+	if (fuwopt != NULL)
+		fstrm_unix_writer_options_destroy(&fuwopt);
+
+	if (fwopt != NULL)
+		fstrm_writer_options_destroy(&fwopt);
+
+	if (result != ISC_R_SUCCESS) {
+		if (env->mctx != NULL)
+			isc_mem_detach(&env->mctx);
+
+		if (env != NULL) 
+			isc_mem_put(mctx, env, sizeof(dns_dtenv_t));
+	}
 
 	return (result);
 #else
@@ -96,38 +129,38 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 }
 
 static isc_result_t
-totextregion(isc_textregion_t *r, const char *str) {
-	char *p = NULL;
+toregion(dns_dtenv_t *env, isc_region_t *r, const char *str) {
+	unsigned char *p = NULL;
 
 	REQUIRE(r != NULL);
 
 	if (str != NULL) {
-		p = isc_mem_strdup(str);
+		p = (unsigned char *) isc_mem_strdup(env->mctx, str);
 		if (p == NULL)
 			return (ISC_R_NOMEMORY);
 	}
 
 	if (r->base != NULL) {
-		isc_mem_free(r->base);
+		isc_mem_free(env->mctx, r->base);
 		r->length = 0;
 	}
 
 	if (p != NULL) {
 		r->base = p;
-		r->length = strlen(p);
+		r->length = strlen((char *) p);
 	}
 
 	return (ISC_R_SUCCESS);
 }
 
 isc_result_t
-dns_dt_setidentity(dns_dtnev_t *env, const char *identity) {
-	return (totextregion(&env->identity, identity));
+dns_dt_setidentity(dns_dtenv_t *env, const char *identity) {
+	return (toregion(env, &env->identity, identity));
 }
 
 isc_result_t
-dns_dt_setversion(dns_dtnev_t *env, const char *version) {
-	return (totextregion(&env->version, version));
+dns_dt_setversion(dns_dtenv_t *env, const char *version) {
+	return (toregion(env, &env->version, version));
 }
 
 isc_result_t
@@ -181,7 +214,7 @@ pack_dt(const Dnstap__Dnstap *d, void **buf, size_t *sz) {
 	sbuf.alloced = DNSTAP_INITIAL_BUF_SIZE;
 
 	/* Need to use malloc() here because protobuf uses free() */
-	sbuf.data = malloc(sbuf.allocated);
+	sbuf.data = malloc(sbuf.alloced);
 	if (sbuf.data == NULL)
 		return (ISC_R_NOMEMORY);
 	sbuf.must_free_data = 1;
@@ -210,7 +243,7 @@ send_dt(dns_dtenv_t *env, void *buf, size_t len) {
 }
 
 static void
-init_msg(dns_dtenv_t *env, dtmsg_t *dm, Dnsttap__Message__Type mtype) {
+init_msg(dns_dtenv_t *env, dtmsg_t *dm, Dnstap__Message__Type mtype) {
 	memset(dm, 0, sizeof(*dm));
 	dm->d.base.descriptor = &dnstap__dnstap__descriptor;
 	dm->m.base.descriptor = &dnstap__message__descriptor;
@@ -284,7 +317,7 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 
 	init_msg(env, &dm, dnstap_type(msgtype));
 
-	if ((msgtype & NS_DTTYPE_QUERY) != 0) {
+	if ((msgtype & DNS_DTTYPE_QUERY) != 0) {
 		if (qtime != NULL)
 			t = qtime;
 
@@ -292,7 +325,7 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 		dm.m.has_query_time_sec = 1;
 		dm.m.query_time_nsec = isc_time_nanoseconds(t);
 		dm.m.has_query_time_nsec = 1;
-	} else if ((msgtype & NS_DTTYPE_RESPONSE) != 0) {
+	} else if ((msgtype & DNS_DTTYPE_RESPONSE) != 0) {
 		if (rtime != NULL)
 			t = rtime;
 

@@ -72,31 +72,31 @@ typedef struct dns_dtenv {
 	struct fstrm_iothr *iothr;
 	struct fstrm_iothr_queue *ioq;
 
-	isc_textregion_t *identity;
-	isc_textregion_t *version;
+	isc_region_t identity;
+	isc_region_t version;
 
 	isc_uint16_t msgtypes;
 } dns_dtenv_t;
 
 isc_result_t
 dns_dt_create(isc_mem_t *mctx, const char *sockpath,
-	     unsigned int workers, ns_dtenv_t **envp);
+	     unsigned int workers, dns_dtenv_t **envp);
 
 isc_result_t
-dns_dt_setidentity(ns_dtnev_t *env, const char *identity);
+dns_dt_setidentity(dns_dtenv_t *env, const char *identity);
 
 isc_result_t
-dns_dt_setversion(ns_dtnev_t *env, const char *version);
+dns_dt_setversion(dns_dtenv_t *env, const char *version);
 
 isc_result_t
-dns_dt_init(ns_dtenv_t *env);
+dns_dt_init(dns_dtenv_t *env);
 
 void
-dns_dt_delete(ns_dtenv_t *env);
+dns_dt_delete(dns_dtenv_t *env);
 
 void
-dns_dt_send(ns_dtenv_t *env, dns_dtmsgtype_t msgtype,
-	    struct sockaddr_storage *sock, ns_commtype_t commtype,
+dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
+	    struct sockaddr_storage *sock, dns_commtype_t commtype,
 	    dns_name_t *zone, dns_message_t *message,
 	    isc_time_t *qtime, isc_time_t *rtime,
 	    isc_buffer_t *buf);
