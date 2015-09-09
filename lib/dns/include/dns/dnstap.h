@@ -90,7 +90,7 @@ dns_dt_delete(dns_dtenv_t *env);
 void
 dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	    isc_sockaddr_t *sa, isc_boolean_t tcp,
-	    dns_name_t *zone, dns_message_t *message,
+	    isc_region_t *zone,
 	    isc_time_t *qtime, isc_time_t *rtime,
 	    isc_buffer_t *buf);
 

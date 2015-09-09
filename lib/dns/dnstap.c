@@ -337,7 +337,7 @@ setaddr(dtmsg_t *dm, isc_sockaddr_t *sa, isc_boolean_t tcp,
 void
 dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	    isc_sockaddr_t *sa, isc_boolean_t tcp,
-	    dns_name_t *zone, dns_message_t *message,
+	    isc_region_t *zone,
 	    isc_time_t *qtime, isc_time_t *rtime,
 	    isc_buffer_t *buf)
 {
@@ -345,29 +345,16 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	isc_time_t now, *t;
 	dtmsg_t dm;
 
-	UNUSED(msgtype);
-	UNUSED(zone);
-	UNUSED(message);
-	UNUSED(qtime);
-	UNUSED(rtime);
-	UNUSED(buf);
-
 	TIME_NOW(&now);
 	t = &now;
 
 	init_msg(env, &dm, dnstap_type(msgtype));
 
-	if ((msgtype & DNS_DTTYPE_QUERY) != 0) {
-		if (qtime != NULL)
-			t = qtime;
-
-		dm.m.query_time_sec = isc_time_seconds(t);
-		dm.m.has_query_time_sec = 1;
-		dm.m.query_time_nsec = isc_time_nanoseconds(t);
-		dm.m.has_query_time_nsec = 1;
-
-		cpbuf(buf, &dm.m.query_message, &dm.m.has_query_message);
-	} else if ((msgtype & DNS_DTTYPE_RESPONSE) != 0) {
+	switch (msgtype) {
+	case DNS_DTTYPE_AR:
+	case DNS_DTTYPE_CR:
+	case DNS_DTTYPE_RR:
+	case DNS_DTTYPE_FR:
 		if (rtime != NULL)
 			t = rtime;
 
@@ -377,7 +364,26 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 		dm.m.has_response_time_nsec = 1;
 
 		cpbuf(buf, &dm.m.response_message, &dm.m.has_response_message);
-	} else {
+
+		/* Types RR and FR get both query and response times */
+		if (msgtype == DNS_DTTYPE_CR || msgtype == DNS_DTTYPE_AR)
+			break;
+
+		/* FALLTHROUGH */
+	case DNS_DTTYPE_AQ:
+	case DNS_DTTYPE_CQ:
+	case DNS_DTTYPE_FQ:
+	case DNS_DTTYPE_RQ:
+		if (qtime != NULL)
+			t = qtime;
+
+		dm.m.query_time_sec = isc_time_seconds(t);
+		dm.m.has_query_time_sec = 1;
+		dm.m.query_time_nsec = isc_time_nanoseconds(t);
+		dm.m.has_query_time_nsec = 1;
+
+		cpbuf(buf, &dm.m.query_message, &dm.m.has_query_message);
+	default:
 		/* TODO log error */
 		return;
 	}
@@ -395,6 +401,10 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	case DNS_DTTYPE_RR:
 	case DNS_DTTYPE_FQ:
 	case DNS_DTTYPE_FR:
+		dm.m.query_zone.data = zone->base;
+		dm.m.query_zone.len = zone->length;
+		dm.m.has_query_zone = 1;
+
 		setaddr(&dm, sa, tcp,
 			&dm.m.response_address, &dm.m.has_response_address,
 			&dm.m.response_port, &dm.m.has_response_port);
@@ -413,7 +423,6 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	UNUSED(msgtype);
 	UNUSED(sa);
 	UNUSED(zone);
-	UNUSED(message);
 	UNUSED(qtime);
 	UNUSED(rtime);
 	UNUSED(buf);
