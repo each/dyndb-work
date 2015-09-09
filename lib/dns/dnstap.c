@@ -300,57 +300,43 @@ cpbuf(isc_buffer_t *buf, ProtobufCBinaryData *p, protobuf_c_boolean *has) {
 }
 
 static void
-setaddr(dtmsg_t *dm, struct sockaddr_storage *ss, dns_commtype_t ct,
+setaddr(dtmsg_t *dm, isc_sockaddr_t *sa, isc_boolean_t tcp,
 	ProtobufCBinaryData *addr, protobuf_c_boolean *has_addr,
 	isc_uint32_t *port, protobuf_c_boolean *has_port)
 {
-	if (ss->ss_family != AF_INET6 && ss->ss_family != AF_INET) {
+	int family = isc_sockaddr_pf(sa);
+
+	if (family != AF_INET6 && family != AF_INET) {
 		/* TODO: log error */
 		return;
 	}
 
-	if (ct != dns_commtype_udp && ct != dns_commtype_tcp) {
-		/* TODO: log error */
-		return;
-	}
-
-	if (ss->ss_family == AF_INET6) {
-		struct sockaddr_in6 *s = (struct sockaddr_in6 *) ss;
-
+	if (family == AF_INET6) {
 		dm->m.socket_family = DNSTAP__SOCKET_FAMILY__INET6;
-		dm->m.has_socket_family = 1;
-
-		addr->data = s->sin6_addr.s6_addr;
+		addr->data = sa->type.sin6.sin6_addr.s6_addr;
 		addr->len = 16;
-		*has_addr = 1;
-
-		*port = ntohs(s->sin6_port);
-		*has_port = 1;
+		*port = ntohs(sa->type.sin6.sin6_port);
 	} else {
-		struct sockaddr_in *s = (struct sockaddr_in *) ss;
 		dm->m.socket_family = DNSTAP__SOCKET_FAMILY__INET;
-		dm->m.has_socket_family = 1;
-
-		addr->data = (uint8_t *) &s->sin_addr.s_addr;
+		addr->data = (uint8_t *) &sa->type.sin.sin_addr.s_addr;
 		addr->len = 4;
-		*has_addr = 1;
-
-		*port = ntohs(s->sin_port);
-		*has_port = 1;
+		*port = ntohs(sa->type.sin.sin_port);
 	}
 
-	if (ct == dns_commtype_udp) {
+	if (tcp)
+		dm->m.socket_protocol = DNSTAP__SOCKET_PROTOCOL__TCP;
+	else
 		dm->m.socket_protocol = DNSTAP__SOCKET_PROTOCOL__UDP;
-		dm->m.has_socket_protocol = 1;
-	} else {
-		dm->m.socket_protocol = DNSTAP__SOCKET_PROTOCOL__UDP;
-		dm->m.has_socket_protocol = 1;
-	}
+
+	dm->m.has_socket_protocol = 1;
+	dm->m.has_socket_family = 1;
+	*has_addr = 1;
+	*has_port = 1;
 }
 
 void
 dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
-	    struct sockaddr_storage *sock, dns_commtype_t commtype,
+	    isc_sockaddr_t *sa, isc_boolean_t tcp,
 	    dns_name_t *zone, dns_message_t *message,
 	    isc_time_t *qtime, isc_time_t *rtime,
 	    isc_buffer_t *buf)
@@ -360,8 +346,6 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	dtmsg_t dm;
 
 	UNUSED(msgtype);
-	UNUSED(sock);
-	UNUSED(commtype);
 	UNUSED(zone);
 	UNUSED(message);
 	UNUSED(qtime);
@@ -403,7 +387,7 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	case DNS_DTTYPE_AR:
 	case DNS_DTTYPE_CQ:
 	case DNS_DTTYPE_CR:
-		setaddr(&dm, sock, commtype,
+		setaddr(&dm, sa, tcp,
 			&dm.m.query_address, &dm.m.has_query_address,
 			&dm.m.query_port, &dm.m.has_query_port);
 		break;
@@ -411,7 +395,7 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	case DNS_DTTYPE_RR:
 	case DNS_DTTYPE_FQ:
 	case DNS_DTTYPE_FR:
-		setaddr(&dm, sock, commtype,
+		setaddr(&dm, sa, tcp,
 			&dm.m.response_address, &dm.m.has_response_address,
 			&dm.m.response_port, &dm.m.has_response_port);
 		break;
@@ -427,8 +411,7 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 #else
 	UNUSED(env);
 	UNUSED(msgtype);
-	UNUSED(sock);
-	UNUSED(commtype);
+	UNUSED(sa);
 	UNUSED(zone);
 	UNUSED(message);
 	UNUSED(qtime);

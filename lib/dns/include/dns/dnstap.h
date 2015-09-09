@@ -23,6 +23,7 @@
 #endif /* DNSTAP */
 
 #include <isc/region.h>
+#include <isc/sockaddr.h>
 #include <isc/types.h>
 
 #include <dns/types.h>
@@ -58,14 +59,6 @@
 #define DNS_DTTYPE_RESPONSE \
 	(DNS_DTTYPE_SR|DNS_DTTYPE_CR|DNS_DTTYPE_AR|DNS_DTTYPE_RR|DNS_DTTYPE_FR)
 
-typedef enum {
-	dns_commtype_udp,	 /*% UDP socket */
-	dns_commtype_tcp_accept, /*% TCP accept socket */
-	dns_commtype_tcp,	 /*% TCP handler socket */
-	dns_commtype_local,	 /*% AF_UNIX socket */
-	dns_commtype_raw	 /*% Raw - not DNS format */
-} dns_commtype_t;
-
 typedef struct dns_dtenv {
 	isc_mem_t *mctx;
 
@@ -96,7 +89,7 @@ dns_dt_delete(dns_dtenv_t *env);
 
 void
 dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
-	    struct sockaddr_storage *sock, dns_commtype_t commtype,
+	    isc_sockaddr_t *sa, isc_boolean_t tcp,
 	    dns_name_t *zone, dns_message_t *message,
 	    isc_time_t *qtime, isc_time_t *rtime,
 	    isc_buffer_t *buf);
