@@ -52,7 +52,7 @@ typedef struct dtmsg {
 
 isc_result_t
 dns_dt_create(isc_mem_t *mctx, const char *sockpath,
-	     unsigned int workers, dns_dtenv_t **envp)
+	      unsigned int workers, dns_dtenv_t **envp)
 {
 #ifdef DNSTAP
 	isc_result_t result = ISC_R_SUCCESS;
@@ -70,6 +70,10 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 		CHECK(ISC_R_NOMEMORY);
 
 	memset(env, 0, sizeof(dns_dtenv_t));
+
+	env->socket_path = isc_mem_strdup(mctx, sockpath);
+	if (env->socket_path == NULL)
+		CHECK(ISC_R_NOMEMORY);
 
 	fwopt = fstrm_writer_options_init();
 	if (fwopt == NULL)
@@ -111,9 +115,10 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 		fstrm_writer_options_destroy(&fwopt);
 
 	if (result != ISC_R_SUCCESS) {
+		if (env->socket_path != NULL)
+			isc_mem_free(env->mctx, env->socket_path);
 		if (env->mctx != NULL)
 			isc_mem_detach(&env->mctx);
-
 		if (env != NULL) 
 			isc_mem_put(mctx, env, sizeof(dns_dtenv_t));
 	}
@@ -178,10 +183,14 @@ dns_dt_init(dns_dtenv_t *env) {
 }
 
 void
-dns_dt_delete(dns_dtenv_t *env) {
+dns_dt_destroy(dns_dtenv_t **envp) {
 #ifdef DNSTAP
-	if (env == NULL)
-		return;
+	dns_dtenv_t *env;
+
+	REQUIRE(envp != NULL && *envp != NULL);
+
+	env = *envp;
+
 	/* TODO: log "closing dnstap socket" */
 
 	fstrm_iothr_destroy(&env->iothr);
@@ -194,8 +203,12 @@ dns_dt_delete(dns_dtenv_t *env) {
 		isc_mem_free(env->mctx, env->version.base);
 		env->version.length = 0;
 	}
+	if (env->socket_path != NULL)
+		isc_mem_free(env->mctx, env->socket_path);
 
 	isc_mem_putanddetach(&env->mctx, env, sizeof(*env));
+
+	*envp = NULL;
 #else
 	UNUSED(env);
 #endif /* DNSTAP */

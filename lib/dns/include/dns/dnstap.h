@@ -61,6 +61,7 @@
 
 typedef struct dns_dtenv {
 	isc_mem_t *mctx;
+	char *socket_path;
 
 	struct fstrm_iothr *iothr;
 	struct fstrm_iothr_queue *ioq;
@@ -85,7 +86,7 @@ isc_result_t
 dns_dt_init(dns_dtenv_t *env);
 
 void
-dns_dt_delete(dns_dtenv_t *env);
+dns_dt_destroy(dns_dtenv_t **envp);
 
 void
 dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,

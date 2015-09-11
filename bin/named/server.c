@@ -6553,6 +6553,82 @@ load_configuration(const char *filename, ns_server_t *server,
 			goto cleanup;
 	}
 
+	obj = NULL;
+	result = ns_config_get(maps, "dnstap", &obj);
+	do {
+		const char *dsocket = ns_g_defaultdnstapsock;
+		const cfg_obj_t *dlist = NULL;
+		dns_dtmsgtype_t dtypes = 0;
+
+		if (result != ISC_R_SUCCESS)
+			break;
+
+		(void)cfg_map_get(obj, "category", &dlist);
+		if (dlist == NULL)
+			break;
+
+		for (element = cfg_list_first(dlist);
+		     element != NULL;
+		     element = cfg_list_next(element))
+		{
+			const cfg_obj_t *obj2;
+			const char *str;
+			dns_dtmsgtype_t dt = 0;
+
+			obj = cfg_listelt_value(element);
+			obj2 = cfg_tuple_get(obj, "type");
+			str = cfg_obj_asstring(obj2);
+			if (strcasecmp(str, "client") == 0) {
+				dt |= DNS_DTTYPE_CQ|DNS_DTTYPE_CR;
+			} else if (strcasecmp(str, "resolver") == 0) {
+				dt |= DNS_DTTYPE_RQ|DNS_DTTYPE_RR;
+			} else if (strcasecmp(str, "forwarder") == 0) {
+				dt |= DNS_DTTYPE_FQ|DNS_DTTYPE_FR;
+			} else if (strcasecmp(str, "auth") == 0) {
+				dt |= DNS_DTTYPE_AQ|DNS_DTTYPE_AR;
+			} else if (strcasecmp(str, "stub") == 0) {
+				dt |= DNS_DTTYPE_SQ|DNS_DTTYPE_SR;
+			}
+
+			obj2 = cfg_tuple_get(obj, "mode");
+			if (obj2 == NULL) {
+				dtypes |= dt;
+				break;
+			}
+
+			str = cfg_obj_asstring(obj2);
+			if (strcasecmp(str, "query")) {
+				dt &= ~DNS_DTTYPE_RESPONSE;
+			} else if (strcasecmp(str, "response")) {
+				dt &= ~DNS_DTTYPE_QUERY;
+			}
+
+			dtypes |= dt;
+			break;
+		}
+
+		obj = NULL;
+		result = ns_config_get(maps, "dnstap-socket", &obj);
+		if (result == ISC_R_SUCCESS)
+			dsocket = cfg_obj_asstring(obj);
+
+		/* XXX: only 1 worker, should we have more? */
+		result = dns_dt_create(ns_g_mctx, dsocket, 1,
+				       &ns_g_server->dtenv);
+
+		obj = NULL;
+		result = ns_config_get(maps, "dnstap-send-version", &obj);
+		if (result == ISC_R_SUCCESS)
+			dns_dt_setversion(ns_g_server->dtenv,
+					  cfg_obj_asstring(obj));
+
+		obj = NULL;
+		result = ns_config_get(maps, "dnstap-send-identity", &obj);
+		if (result == ISC_R_SUCCESS)
+			dns_dt_setidentity(ns_g_server->dtenv,
+					   cfg_obj_asstring(obj));
+	} while (0);
+
 	result = ISC_R_SUCCESS;
 
  cleanup:
@@ -7106,6 +7182,8 @@ ns_server_create(isc_mem_t *mctx, ns_server_t **serverp) {
 
 	server->lockfile = NULL;
 
+	server->dtenv = NULL;
+
 	server->magic = NS_SERVER_MAGIC;
 	*serverp = server;
 }
@@ -7114,6 +7192,9 @@ void
 ns_server_destroy(ns_server_t **serverp) {
 	ns_server_t *server = *serverp;
 	REQUIRE(NS_SERVER_VALID(server));
+
+	if (server->dtenv != NULL)
+		dns_dt_destroy(&server->dtenv);
 
 	ns_controls_destroy(&server->controls);
 
