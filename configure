@@ -19830,6 +19830,9 @@ fi
 DNSTAPSRCS=
 DNSTAPOBJS=
 if test "x$use_dnstap" != "xno"; then
+        if ! $use_threads; then
+                as_fn_error $? "Dnstap requires threads." "$LINENO" 5
+        fi
         # Extract the first word of "protoc-c", so it can be a program name with args.
 set dummy protoc-c; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5

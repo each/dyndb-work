@@ -19,8 +19,11 @@
 #include <config.h>
 
 #include <isc/buffer.h>
+#include <isc/file.h>
 #include <isc/mem.h>
+#include <isc/once.h>
 #include <isc/sockaddr.h>
+#include <isc/thread.h>
 #include <isc/time.h>
 #include <isc/types.h>
 #include <isc/util.h>
@@ -52,6 +55,57 @@ typedef struct dtmsg {
 	if (result != ISC_R_SUCCESS) \
 		goto cleanup; \
 	} while (0)
+
+static isc_mutex_t dt_mutex;
+static isc_boolean_t dt_initialized = ISC_FALSE;
+static isc_thread_key_t dt_key;
+static isc_once_t mutex_once = ISC_ONCE_INIT;
+static isc_mem_t *dt_mctx = NULL;
+
+static void
+mutex_init(void) {
+	RUNTIME_CHECK(isc_mutex_init(&dt_mutex) == ISC_R_SUCCESS);
+}
+
+static void
+dtfree(void *arg) {
+	UNUSED(arg);
+	isc_thread_key_setspecific(dt_key, NULL);
+}
+
+static isc_result_t
+dt_init(void) {
+	isc_result_t result;
+
+	result = isc_once_do(&mutex_once, mutex_init);
+	if (result != ISC_R_SUCCESS)
+		return (result);
+
+	if (dt_initialized)
+		return (ISC_R_SUCCESS);
+
+	LOCK(&dt_mutex);
+	if (!dt_initialized) {
+		int ret;
+
+		if (dt_mctx == NULL)
+			result = isc_mem_create2(0, 0, &dt_mctx, 0);
+		if (result != ISC_R_SUCCESS)
+			goto unlock;
+		isc_mem_setname(dt_mctx, "dt", NULL);
+		isc_mem_setdestroycheck(dt_mctx, ISC_FALSE);
+
+		ret = isc_thread_key_create(&dt_key, dtfree);
+		if (ret == 0)
+			dt_initialized = ISC_TRUE;
+		else
+			result = ISC_R_FAILURE;
+	}
+unlock:
+	UNLOCK(&dt_mutex);
+
+	return (result);
+}
 
 isc_result_t
 dns_dt_create(isc_mem_t *mctx, const char *sockpath,
@@ -96,6 +150,7 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 
 	fopt = fstrm_iothr_options_init();
 	fstrm_iothr_options_set_num_input_queues(fopt, workers);
+
 	env->iothr = fstrm_iothr_init(fopt, &fw);
 	if (env->iothr == NULL) {
 		/* TODO: log "fstrm_iothr_init failed" */
@@ -190,17 +245,33 @@ dns_dt_gettypes(dns_dtenv_t *env) {
 	return (env->msgtypes);
 }
 
-isc_result_t
-dns_dt_init(dns_dtenv_t *env) {
+static struct fstrm_iothr_queue *
+dt_queue(dns_dtenv_t *env) {
 #ifdef DNSTAP
-	env->ioq = fstrm_iothr_get_input_queue(env->iothr);
-	if (env->ioq == NULL)
-		return (ISC_R_FAILURE);
-	return (ISC_R_SUCCESS);
+	isc_result_t result;
+	struct fstrm_iothr_queue *ioq;
+
+	REQUIRE(VALID_DTENV(env));
+
+	result = dt_init();
+	if (result != ISC_R_SUCCESS)
+		return (NULL);
+
+	ioq = (struct fstrm_iothr_queue *) isc_thread_key_getspecific(dt_key);
+	if (ioq == NULL) {
+		ioq = fstrm_iothr_get_input_queue(env->iothr);
+		if (ioq != NULL) {
+			result = isc_thread_key_setspecific(dt_key, ioq);
+			if (result != ISC_R_SUCCESS)
+				ioq = NULL;
+		}
+	}
+
+	return (ioq);
 #else
 	UNUSED(env);
 
-	return (ISC_R_NOTIMPLEMENTED);
+	return (NULL);
 #endif /* DNSTAP */
 }
 
@@ -265,6 +336,7 @@ pack_dt(const Dnstap__Dnstap *d, void **buf, size_t *sz) {
 
 static void
 send_dt(dns_dtenv_t *env, void *buf, size_t len) {
+	struct fstrm_iothr_queue *ioq;
 	fstrm_res res;
 
 	REQUIRE(env != NULL);
@@ -272,7 +344,13 @@ send_dt(dns_dtenv_t *env, void *buf, size_t len) {
 	if (buf == NULL)
 		return;
 
-	res = fstrm_iothr_submit(env->iothr, env->ioq, buf, len,
+	ioq = dt_queue(env);
+	if (ioq == NULL) {
+		free(buf);
+		return;
+	}
+
+	res = fstrm_iothr_submit(env->iothr, dt_queue(env), buf, len,
 				 fstrm_free_wrapper, NULL);
 	if (res != fstrm_res_success)
 		free(buf);
@@ -468,4 +546,10 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	UNUSED(rtime);
 	UNUSED(buf);
 #endif /* DNSTAP */
+}
+
+void
+dns_dt_shutdown() {
+	if (dt_mctx != NULL)
+		isc_mem_detach(&dt_mctx);
 }

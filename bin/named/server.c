@@ -6607,13 +6607,9 @@ load_configuration(const char *filename, ns_server_t *server,
 		if (result == ISC_R_SUCCESS)
 			dsocket = cfg_obj_asstring(obj);
 
-		/* XXX: only 1 worker, should we have more? */
-		CHECKM(dns_dt_create(ns_g_mctx, dsocket, 1,
-				     &ns_g_server->dtenv),
+		CHECKM(dns_dt_create(ns_g_mctx, dsocket,
+				     ns_g_cpus, &ns_g_server->dtenv),
 		       "unable to create dnstap environment");
-
-		CHECKM(dns_dt_init(ns_g_server->dtenv),
-		       "unable to initialize dnstap environment");
 
 		dns_dt_settypes(ns_g_server->dtenv, dtypes);
 
@@ -6982,6 +6978,9 @@ shutdown_server(isc_task_t *task, isc_event_t *event) {
 	if (server->blackholeacl != NULL)
 		dns_acl_detach(&server->blackholeacl);
 
+#ifdef DNSTAP
+	dns_dt_shutdown();
+#endif
 #ifdef HAVE_GEOIP
 	dns_geoip_shutdown();
 #endif

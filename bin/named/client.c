@@ -1151,11 +1151,9 @@ client_send(ns_client_t *client) {
 		respsize = isc_buffer_usedlength(&tcpbuffer);
 		result = client_sendpkg(client, &tcpbuffer);
 
-#if 0
 		dns_dt_send(ns_g_server->dtenv, dtmsgtype,
 			    &client->peeraddr, ISC_TRUE,
 			    &zr, &client->requesttime, NULL, &buffer);
-#endif
 
 		isc_stats_increment(ns_g_server->tcpoutstats,
 				    ISC_MIN(respsize / 16, 256));
@@ -1163,11 +1161,9 @@ client_send(ns_client_t *client) {
 		respsize = isc_buffer_usedlength(&buffer);
 		result = client_sendpkg(client, &buffer);
 
-#if 0
 		dns_dt_send(ns_g_server->dtenv, dtmsgtype,
 			    &client->peeraddr, ISC_FALSE,
 			    &zr, &client->requesttime, NULL, &buffer);
-#endif
 
 		isc_stats_increment(ns_g_server->udpoutstats,
 				    ISC_MIN(respsize / 16, 256));

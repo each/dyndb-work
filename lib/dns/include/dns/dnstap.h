@@ -66,7 +66,6 @@ typedef struct dns_dtenv {
 	char *socket_path;
 
 	struct fstrm_iothr *iothr;
-	struct fstrm_iothr_queue *ioq;
 
 	isc_region_t identity;
 	isc_region_t version;
@@ -97,10 +96,12 @@ void
 dns_dt_destroy(dns_dtenv_t **envp);
 
 void
+dns_dt_shutdown(void);
+
+void
 dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	    isc_sockaddr_t *sa, isc_boolean_t tcp,
 	    isc_region_t *zone,
 	    isc_time_t *qtime, isc_time_t *rtime,
 	    isc_buffer_t *buf);
-
 #endif /* _DNSTAP_H */
