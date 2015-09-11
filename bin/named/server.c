@@ -6557,14 +6557,10 @@ load_configuration(const char *filename, ns_server_t *server,
 	result = ns_config_get(maps, "dnstap", &obj);
 	do {
 		const char *dsocket = ns_g_defaultdnstapsock;
-		const cfg_obj_t *dlist = NULL;
+		const cfg_obj_t *dlist = obj;
 		dns_dtmsgtype_t dtypes = 0;
 
 		if (result != ISC_R_SUCCESS)
-			break;
-
-		(void)cfg_map_get(obj, "category", &dlist);
-		if (dlist == NULL)
 			break;
 
 		for (element = cfg_list_first(dlist);
@@ -6591,9 +6587,9 @@ load_configuration(const char *filename, ns_server_t *server,
 			}
 
 			obj2 = cfg_tuple_get(obj, "mode");
-			if (obj2 == NULL) {
+			if (obj2 == NULL || cfg_obj_isvoid(obj2)) {
 				dtypes |= dt;
-				break;
+				continue;
 			}
 
 			str = cfg_obj_asstring(obj2);
@@ -6604,7 +6600,6 @@ load_configuration(const char *filename, ns_server_t *server,
 			}
 
 			dtypes |= dt;
-			break;
 		}
 
 		obj = NULL;
@@ -6613,8 +6608,14 @@ load_configuration(const char *filename, ns_server_t *server,
 			dsocket = cfg_obj_asstring(obj);
 
 		/* XXX: only 1 worker, should we have more? */
-		result = dns_dt_create(ns_g_mctx, dsocket, 1,
-				       &ns_g_server->dtenv);
+		CHECKM(dns_dt_create(ns_g_mctx, dsocket, 1,
+				     &ns_g_server->dtenv),
+		       "unable to create dnstap environment");
+
+		CHECKM(dns_dt_init(ns_g_server->dtenv),
+		       "unable to initialize dnstap environment");
+
+		dns_dt_settypes(ns_g_server->dtenv, dtypes);
 
 		obj = NULL;
 		result = ns_config_get(maps, "dnstap-send-version", &obj);

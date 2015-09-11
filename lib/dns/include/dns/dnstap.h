@@ -60,6 +60,8 @@
 	(DNS_DTTYPE_SR|DNS_DTTYPE_CR|DNS_DTTYPE_AR|DNS_DTTYPE_RR|DNS_DTTYPE_FR)
 
 typedef struct dns_dtenv {
+	unsigned int magic;
+
 	isc_mem_t *mctx;
 	char *socket_path;
 
@@ -84,6 +86,12 @@ dns_dt_setversion(dns_dtenv_t *env, const char *version);
 
 isc_result_t
 dns_dt_init(dns_dtenv_t *env);
+
+void
+dns_dt_settypes(dns_dtenv_t *env, dns_dtmsgtype_t types);
+
+dns_dtmsgtype_t
+dns_dt_gettypes(dns_dtenv_t *env);
 
 void
 dns_dt_destroy(dns_dtenv_t **envp);

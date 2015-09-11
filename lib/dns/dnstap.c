@@ -34,6 +34,9 @@
 #include <protobuf-c/protobuf-c.h>
 #endif /* DNSTAP */
 
+#define DTENV_MAGIC			ISC_MAGIC('D', 't', 'n', 'v')
+#define VALID_DTENV(env)		ISC_MAGIC_VALID(env, DTENV_MAGIC)
+
 #define DNSTAP_CONTENT_TYPE	"protobuf:dnstap.Dnstap"
 #define DNSTAP_INITIAL_BUF_SIZE 256
 
@@ -102,6 +105,7 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 
 	isc_mem_attach(mctx, &env->mctx);
 
+	env->magic = DTENV_MAGIC;
 	*envp = env;
 
  cleanup:
@@ -160,12 +164,30 @@ toregion(dns_dtenv_t *env, isc_region_t *r, const char *str) {
 
 isc_result_t
 dns_dt_setidentity(dns_dtenv_t *env, const char *identity) {
+	REQUIRE(VALID_DTENV(env));
+
 	return (toregion(env, &env->identity, identity));
 }
 
 isc_result_t
 dns_dt_setversion(dns_dtenv_t *env, const char *version) {
+	REQUIRE(VALID_DTENV(env));
+
 	return (toregion(env, &env->version, version));
+}
+
+void
+dns_dt_settypes(dns_dtenv_t *env, dns_dtmsgtype_t types) {
+	REQUIRE(VALID_DTENV(env));
+
+	env->msgtypes = types;
+}
+
+dns_dtmsgtype_t
+dns_dt_gettypes(dns_dtenv_t *env) {
+	REQUIRE(VALID_DTENV(env));
+
+	return (env->msgtypes);
 }
 
 isc_result_t
@@ -187,11 +209,12 @@ dns_dt_destroy(dns_dtenv_t **envp) {
 #ifdef DNSTAP
 	dns_dtenv_t *env;
 
-	REQUIRE(envp != NULL && *envp != NULL);
-
-	env = *envp;
+	REQUIRE(envp != NULL && VALID_DTENV(*envp));
 
 	/* TODO: log "closing dnstap socket" */
+	env = *envp;
+
+	env->magic = 0;
 
 	fstrm_iothr_destroy(&env->iothr);
 
@@ -357,6 +380,11 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 #ifdef DNSTAP
 	isc_time_t now, *t;
 	dtmsg_t dm;
+
+	if (env == NULL)
+		return;
+
+	REQUIRE(VALID_DTENV(env));
 
 	TIME_NOW(&now);
 	t = &now;
