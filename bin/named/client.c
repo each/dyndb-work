@@ -983,10 +983,12 @@ client_send(ns_client_t *client) {
 	unsigned int render_opts;
 	unsigned int preferred_glue;
 	isc_boolean_t opt_included = ISC_FALSE;
-	dns_dtmsgtype_t dtmsgtype;
 	size_t respsize;
+#ifdef DNSTAP
 	unsigned char zone[DNS_NAME_MAXWIRE];
+	dns_dtmsgtype_t dtmsgtype;
 	isc_region_t zr;
+#endif /* DNSTAP */
 
 	REQUIRE(NS_CLIENT_VALID(client));
 
@@ -1121,21 +1123,24 @@ client_send(ns_client_t *client) {
 
 	memset(&zr, 0, sizeof(zr));
 #ifdef DNSTAP
-	if ((client->message->flags & DNS_MESSAGEFLAG_AA) != 0) {
-		if (client->query.authzone != NULL) {
-			isc_buffer_t b;
-			dns_name_t *zo =
-				dns_zone_getorigin(client->query.authzone);
+	if (((client->message->flags & DNS_MESSAGEFLAG_AA) != 0) &&
+	    (client->query.authzone != NULL))
+	{
+		isc_buffer_t b;
+		dns_name_t *zo =
+			dns_zone_getorigin(client->query.authzone);
 
-			isc_buffer_init(&b, zone, sizeof(zone));
-			dns_compress_setmethods(&cctx, DNS_COMPRESS_NONE);
-			result = dns_name_towire(zo, &cctx, &b);
-			if (result == ISC_R_SUCCESS)
-				isc_buffer_usedregion(&b, &zr);
-		}
-		dtmsgtype = DNS_DTTYPE_AR;
-	} else
+		isc_buffer_init(&b, zone, sizeof(zone));
+		dns_compress_setmethods(&cctx, DNS_COMPRESS_NONE);
+		result = dns_name_towire(zo, &cctx, &b);
+		if (result == ISC_R_SUCCESS)
+			isc_buffer_usedregion(&b, &zr);
+	}
+
+	if ((client->message->flags & DNS_MESSAGEFLAG_RD) != 0)
 		dtmsgtype = DNS_DTTYPE_CR;
+	else
+		dtmsgtype = DNS_DTTYPE_AR;
 #endif /* DNSTAP */
 
 	if (cleanup_cctx) {
@@ -1151,9 +1156,11 @@ client_send(ns_client_t *client) {
 		respsize = isc_buffer_usedlength(&tcpbuffer);
 		result = client_sendpkg(client, &tcpbuffer);
 
+#ifdef DNSTAP
 		dns_dt_send(ns_g_server->dtenv, dtmsgtype,
 			    &client->peeraddr, ISC_TRUE,
 			    &zr, &client->requesttime, NULL, &buffer);
+#endif /* DNSTAP */
 
 		isc_stats_increment(ns_g_server->tcpoutstats,
 				    ISC_MIN(respsize / 16, 256));
@@ -1161,9 +1168,11 @@ client_send(ns_client_t *client) {
 		respsize = isc_buffer_usedlength(&buffer);
 		result = client_sendpkg(client, &buffer);
 
+#ifdef DNSTAP
 		dns_dt_send(ns_g_server->dtenv, dtmsgtype,
 			    &client->peeraddr, ISC_FALSE,
 			    &zr, &client->requesttime, NULL, &buffer);
+#endif /* DNSTAP */
 
 		isc_stats_increment(ns_g_server->udpoutstats,
 				    ISC_MIN(respsize / 16, 256));
@@ -2062,6 +2071,9 @@ client_request(isc_task_t *task, isc_event_t *event) {
 	unsigned int flags;
 	isc_boolean_t notimp;
 	size_t reqsize;
+#ifdef DNSTAP
+	dns_dtmsgtype_t dtmsgtype;
+#endif
 
 	REQUIRE(event != NULL);
 	client = event->ev_arg;
@@ -2614,6 +2626,17 @@ client_request(isc_task_t *task, isc_event_t *event) {
 	switch (client->message->opcode) {
 	case dns_opcode_query:
 		CTRACE("query");
+#ifdef DNSTAP
+		if ((client->message->flags & DNS_MESSAGEFLAG_RD) != 0)
+			dtmsgtype = DNS_DTTYPE_CQ;
+		else
+			dtmsgtype = DNS_DTTYPE_AQ;
+
+		dns_dt_send(ns_g_server->dtenv, dtmsgtype,
+			    &client->peeraddr, TCP_CLIENT(client),
+			    NULL, &client->requesttime, NULL, buffer);
+#endif /* DNSTAP */
+
 		ns_query_start(client);
 		break;
 	case dns_opcode_update:

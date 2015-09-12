@@ -502,6 +502,7 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 		dm.m.has_query_time_nsec = 1;
 
 		cpbuf(buf, &dm.m.query_message, &dm.m.has_query_message);
+		break;
 	default:
 		/* TODO log error */
 		return;
@@ -520,9 +521,11 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	case DNS_DTTYPE_RR:
 	case DNS_DTTYPE_FQ:
 	case DNS_DTTYPE_FR:
-		dm.m.query_zone.data = zone->base;
-		dm.m.query_zone.len = zone->length;
-		dm.m.has_query_zone = 1;
+		if (zone != NULL && zone->base != NULL && zone->length != 0) {
+			dm.m.query_zone.data = zone->base;
+			dm.m.query_zone.len = zone->length;
+			dm.m.has_query_zone = 1;
+		}
 
 		setaddr(&dm, sa, tcp,
 			&dm.m.response_address, &dm.m.has_response_address,
