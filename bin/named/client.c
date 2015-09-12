@@ -1121,8 +1121,8 @@ client_send(ns_client_t *client) {
 	if (result != ISC_R_SUCCESS)
 		goto done;
 
-	memset(&zr, 0, sizeof(zr));
 #ifdef DNSTAP
+	memset(&zr, 0, sizeof(zr));
 	if (((client->message->flags & DNS_MESSAGEFLAG_AA) != 0) &&
 	    (client->query.authzone != NULL))
 	{
@@ -1157,7 +1157,7 @@ client_send(ns_client_t *client) {
 		result = client_sendpkg(client, &tcpbuffer);
 
 #ifdef DNSTAP
-		dns_dt_send(ns_g_server->dtenv, dtmsgtype,
+		dns_dt_send(client->view->dtenv, dtmsgtype,
 			    &client->peeraddr, ISC_TRUE,
 			    &zr, &client->requesttime, NULL, &buffer);
 #endif /* DNSTAP */
@@ -1169,7 +1169,7 @@ client_send(ns_client_t *client) {
 		result = client_sendpkg(client, &buffer);
 
 #ifdef DNSTAP
-		dns_dt_send(ns_g_server->dtenv, dtmsgtype,
+		dns_dt_send(client->view->dtenv, dtmsgtype,
 			    &client->peeraddr, ISC_FALSE,
 			    &zr, &client->requesttime, NULL, &buffer);
 #endif /* DNSTAP */
@@ -2632,7 +2632,7 @@ client_request(isc_task_t *task, isc_event_t *event) {
 		else
 			dtmsgtype = DNS_DTTYPE_AQ;
 
-		dns_dt_send(ns_g_server->dtenv, dtmsgtype,
+		dns_dt_send(view->dtenv, dtmsgtype,
 			    &client->peeraddr, TCP_CLIENT(client),
 			    NULL, &client->requesttime, NULL, buffer);
 #endif /* DNSTAP */

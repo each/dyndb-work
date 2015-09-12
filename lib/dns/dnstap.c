@@ -128,6 +128,8 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 
 	memset(env, 0, sizeof(dns_dtenv_t));
 
+	CHECK(isc_refcount_init(&env->refcount, 1));
+
 	env->socket_path = isc_mem_strdup(mctx, sockpath);
 	if (env->socket_path == NULL)
 		CHECK(ISC_R_NOMEMORY);
@@ -276,8 +278,21 @@ dt_queue(dns_dtenv_t *env) {
 }
 
 void
-dns_dt_destroy(dns_dtenv_t **envp) {
+dns_dt_attach(dns_dtenv_t *source, dns_dtenv_t **destp) {
 #ifdef DNSTAP
+	REQUIRE(VALID_DTENV(source));
+	REQUIRE(destp != NULL && *destp == NULL);
+
+	isc_refcount_increment(&source->refcount, NULL);
+	*destp = source;
+#else
+	UNUSED(source);
+	UNUSED(destp);
+#endif /* DNSTAP */
+}
+
+static void
+destroy(dns_dtenv_t **envp) {
 	dns_dtenv_t *env;
 
 	REQUIRE(envp != NULL && VALID_DTENV(*envp));
@@ -301,6 +316,20 @@ dns_dt_destroy(dns_dtenv_t **envp) {
 		isc_mem_free(env->mctx, env->socket_path);
 
 	isc_mem_putanddetach(&env->mctx, env, sizeof(*env));
+
+	*envp = NULL;
+}
+
+void
+dns_dt_detach(dns_dtenv_t **envp) {
+#ifdef DNSTAP
+	unsigned int refs;
+	dns_dtenv_t *env = *envp;
+	REQUIRE(VALID_DTENV(env));
+
+	isc_refcount_decrement(&env->refcount, &refs);
+	if (refs == 0)
+		destroy(&env);
 
 	*envp = NULL;
 #else

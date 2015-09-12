@@ -22,6 +22,7 @@
 #include <protobuf-c/protobuf-c.h>
 #endif /* DNSTAP */
 
+#include <isc/refcount.h>
 #include <isc/region.h>
 #include <isc/sockaddr.h>
 #include <isc/types.h>
@@ -61,6 +62,7 @@
 
 typedef struct dns_dtenv {
 	unsigned int magic;
+	isc_refcount_t refcount;
 
 	isc_mem_t *mctx;
 	char *socket_path;
@@ -93,7 +95,10 @@ dns_dtmsgtype_t
 dns_dt_gettypes(dns_dtenv_t *env);
 
 void
-dns_dt_destroy(dns_dtenv_t **envp);
+dns_dt_attach(dns_dtenv_t *source, dns_dtenv_t **destp);
+
+void
+dns_dt_detach(dns_dtenv_t **envp);
 
 void
 dns_dt_shutdown(void);

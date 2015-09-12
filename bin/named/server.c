@@ -3907,6 +3907,8 @@ configure_view(dns_view_t *view, dns_viewlist_t *viewlist,
 	} else
 		view->redirectzone = NULL;
 
+	if (ns_g_server->dtenv != NULL)
+		dns_dt_attach(ns_g_server->dtenv, &view->dtenv);
 
 	result = ISC_R_SUCCESS;
 
@@ -5543,6 +5545,84 @@ check_lockfile(ns_server_t *server, const cfg_obj_t *config,
 	return (ISC_R_FAILURE);
 }
 
+#ifdef DNSTAP
+static isc_result_t
+configure_dnstap(const cfg_obj_t **maps, ns_server_t *server,
+		 isc_mem_t *mctx)
+{
+	isc_result_t result;
+	const cfg_obj_t *obj, *obj2;
+	const cfg_listelt_t *element;
+	const char *dsocket = ns_g_defaultdnstapsock;
+	const cfg_obj_t *dlist = NULL;
+	dns_dtmsgtype_t dtypes = 0;
+
+	CHECK(ns_config_get(maps, "dnstap", &dlist));
+	for (element = cfg_list_first(dlist);
+	     element != NULL;
+	     element = cfg_list_next(element))
+	{
+		const char *str;
+		dns_dtmsgtype_t dt = 0;
+
+		obj = cfg_listelt_value(element);
+		obj2 = cfg_tuple_get(obj, "type");
+		str = cfg_obj_asstring(obj2);
+		if (strcasecmp(str, "client") == 0) {
+			dt |= DNS_DTTYPE_CQ|DNS_DTTYPE_CR;
+		} else if (strcasecmp(str, "resolver") == 0) {
+			dt |= DNS_DTTYPE_RQ|DNS_DTTYPE_RR;
+		} else if (strcasecmp(str, "forwarder") == 0) {
+			dt |= DNS_DTTYPE_FQ|DNS_DTTYPE_FR;
+		} else if (strcasecmp(str, "auth") == 0) {
+			dt |= DNS_DTTYPE_AQ|DNS_DTTYPE_AR;
+		} else if (strcasecmp(str, "stub") == 0) {
+			dt |= DNS_DTTYPE_SQ|DNS_DTTYPE_SR;
+		}
+
+		obj2 = cfg_tuple_get(obj, "mode");
+		if (obj2 == NULL || cfg_obj_isvoid(obj2)) {
+			dtypes |= dt;
+			continue;
+		}
+
+		str = cfg_obj_asstring(obj2);
+		if (strcasecmp(str, "query")) {
+			dt &= ~DNS_DTTYPE_RESPONSE;
+		} else if (strcasecmp(str, "response")) {
+			dt &= ~DNS_DTTYPE_QUERY;
+		}
+
+		dtypes |= dt;
+	}
+
+	obj = NULL;
+	result = ns_config_get(maps, "dnstap-socket", &obj);
+	if (result == ISC_R_SUCCESS)
+		dsocket = cfg_obj_asstring(obj);
+
+	CHECKM(dns_dt_create(mctx, dsocket, ns_g_cpus, &server->dtenv),
+	       "unable to create dnstap environment");
+
+	dns_dt_settypes(server->dtenv, dtypes);
+
+	obj = NULL;
+	result = ns_config_get(maps, "dnstap-send-version", &obj);
+	if (result == ISC_R_SUCCESS)
+		dns_dt_setversion(server->dtenv, cfg_obj_asstring(obj));
+
+	obj = NULL;
+	result = ns_config_get(maps, "dnstap-send-identity", &obj);
+	if (result == ISC_R_SUCCESS)
+		dns_dt_setidentity(server->dtenv, cfg_obj_asstring(obj));
+
+	result = ISC_R_SUCCESS;
+
+ cleanup:
+	return (result);
+}
+#endif /* DNSTAP */
+
 static isc_result_t
 load_configuration(const char *filename, ns_server_t *server,
 		   isc_boolean_t first_time)
@@ -6095,6 +6175,12 @@ load_configuration(const char *filename, ns_server_t *server,
 	 */
 	(void)configure_session_key(maps, server, ns_g_mctx);
 
+	/*
+	 * Set up the dnstap environment. (Needs to be done before
+	 * configuring views.)
+	 */
+	CHECK(configure_dnstap(maps, server, ns_g_mctx));
+
 	views = NULL;
 	(void)cfg_map_get(config, "view", &views);
 
@@ -6552,79 +6638,6 @@ load_configuration(const char *filename, ns_server_t *server,
 		if (result != ISC_R_SUCCESS)
 			goto cleanup;
 	}
-
-	obj = NULL;
-	result = ns_config_get(maps, "dnstap", &obj);
-	do {
-		const char *dsocket = ns_g_defaultdnstapsock;
-		const cfg_obj_t *dlist = obj;
-		dns_dtmsgtype_t dtypes = 0;
-
-		if (result != ISC_R_SUCCESS)
-			break;
-
-		for (element = cfg_list_first(dlist);
-		     element != NULL;
-		     element = cfg_list_next(element))
-		{
-			const cfg_obj_t *obj2;
-			const char *str;
-			dns_dtmsgtype_t dt = 0;
-
-			obj = cfg_listelt_value(element);
-			obj2 = cfg_tuple_get(obj, "type");
-			str = cfg_obj_asstring(obj2);
-			if (strcasecmp(str, "client") == 0) {
-				dt |= DNS_DTTYPE_CQ|DNS_DTTYPE_CR;
-			} else if (strcasecmp(str, "resolver") == 0) {
-				dt |= DNS_DTTYPE_RQ|DNS_DTTYPE_RR;
-			} else if (strcasecmp(str, "forwarder") == 0) {
-				dt |= DNS_DTTYPE_FQ|DNS_DTTYPE_FR;
-			} else if (strcasecmp(str, "auth") == 0) {
-				dt |= DNS_DTTYPE_AQ|DNS_DTTYPE_AR;
-			} else if (strcasecmp(str, "stub") == 0) {
-				dt |= DNS_DTTYPE_SQ|DNS_DTTYPE_SR;
-			}
-
-			obj2 = cfg_tuple_get(obj, "mode");
-			if (obj2 == NULL || cfg_obj_isvoid(obj2)) {
-				dtypes |= dt;
-				continue;
-			}
-
-			str = cfg_obj_asstring(obj2);
-			if (strcasecmp(str, "query")) {
-				dt &= ~DNS_DTTYPE_RESPONSE;
-			} else if (strcasecmp(str, "response")) {
-				dt &= ~DNS_DTTYPE_QUERY;
-			}
-
-			dtypes |= dt;
-		}
-
-		obj = NULL;
-		result = ns_config_get(maps, "dnstap-socket", &obj);
-		if (result == ISC_R_SUCCESS)
-			dsocket = cfg_obj_asstring(obj);
-
-		CHECKM(dns_dt_create(ns_g_mctx, dsocket,
-				     ns_g_cpus, &ns_g_server->dtenv),
-		       "unable to create dnstap environment");
-
-		dns_dt_settypes(ns_g_server->dtenv, dtypes);
-
-		obj = NULL;
-		result = ns_config_get(maps, "dnstap-send-version", &obj);
-		if (result == ISC_R_SUCCESS)
-			dns_dt_setversion(ns_g_server->dtenv,
-					  cfg_obj_asstring(obj));
-
-		obj = NULL;
-		result = ns_config_get(maps, "dnstap-send-identity", &obj);
-		if (result == ISC_R_SUCCESS)
-			dns_dt_setidentity(ns_g_server->dtenv,
-					   cfg_obj_asstring(obj));
-	} while (0);
 
 	result = ISC_R_SUCCESS;
 
@@ -7194,7 +7207,7 @@ ns_server_destroy(ns_server_t **serverp) {
 	REQUIRE(NS_SERVER_VALID(server));
 
 	if (server->dtenv != NULL)
-		dns_dt_destroy(&server->dtenv);
+		dns_dt_detach(&server->dtenv);
 
 	ns_controls_destroy(&server->controls);
 

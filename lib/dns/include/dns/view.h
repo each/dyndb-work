@@ -71,6 +71,7 @@
 
 #include <dns/acl.h>
 #include <dns/clientinfo.h>
+#include <dns/dnstap.h>
 #include <dns/fixedname.h>
 #include <dns/rrl.h>
 #include <dns/rdatastruct.h>
@@ -215,6 +216,8 @@ struct dns_view {
 	void				(*cfg_destroy)(void **);
 
 	unsigned char			secret[32];	/* Client secret */
+
+	dns_dtenv_t			*dtenv;		/* Dnstap environment */
 };
 
 #define DNS_VIEW_MAGIC			ISC_MAGIC('V','i','e','w')
