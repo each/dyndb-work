@@ -5168,6 +5168,116 @@ badresp:1,adberr:0,findfail:0,valfail:0]
 	  </varlistentry>
 
 	  <varlistentry>
+	    <term><command>dnstap</command></term>
+	    <listitem>
+	      <para>
+		<command>dnstap</command> is a fast, flexible method
+		for capturing and logging DNS traffic. Developed by
+		Robert Edmonds at Farsight Security, Inc., and supported
+		by multiple DNS implementations, <command>dnstap</command>
+		uses
+		<command>libfstrm</command> (a lightweight high-speed
+		framing library, see
+		<ulink url="https://github.com/farsightsec/fstrm"
+		  >https://github.com/farsightsec/fstrm</ulink>) to send
+		event payloads which are encoded using Protocol Buffers
+		(<command>libprotobuf-c</command>, a mechanism for
+		serializing structured data developed
+		by Google, Inc.; see 
+		<ulink url="https://developers.google.com/protocol-buffers/"
+		  >https://developers.google.com/protocol-buffers</ulink>).
+	      </para>
+	      <para>
+		To enable <command>dnstap</command> at compile time, 
+		the <command>fstrm</command> and <command>protobuf-c</command>
+		libraries must be available, and BIND must be configured with
+		<option>--enable-dnstap</option>.
+	      </para>
+	      <para>
+		The <command>dnstap</command> option is a bracketed list
+		of message types to be logged. These may be set differently
+		for each view. Supported types are <literal>client</literal>,
+		<literal>auth</literal>, <literal>resolver</literal>, and
+		<literal>forwarder</literal>.  Specifying type
+		<literal>all</literal> will cause all <command>dnstap</command>
+		messages to be logged, regardless of type.
+	      </para>
+	      <para>
+		Each type may take an additional argument to indicate whether
+		to log <literal>query</literal> messages or
+		<literal>response</literal> messages; if not specified,
+		both queries and responses are logged.
+	      </para>
+	      <para>
+		Example: To log all authoritative queries and responses,
+		recursive client responses, and upstream queries sent by
+		the resolver, use:
+<programlisting>dnstap {
+  auth;
+  client response;
+  resolver query;
+};
+</programlisting>
+	      </para>
+	      <para>
+		Logged <command>dnstap</command> messages can be parsed
+		using the <command>dnstap-ldns</command> utility, available
+		from 
+		<ulink url="https://github.com/dnstap/dnstap-ldns"
+		  >https://github.com/dnstap/dnstap-ldns</ulink>.
+	      </para>
+	      <para>
+		For more information on <command>dnstap</command>, see
+		<ulink url="http://dnstap.info"
+		  >http://dnstap.info</ulink>.
+	      </para>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><command>dnstap-path</command></term>
+	    <listitem>
+	      <para>
+		The path to which <command>dnstap</command> messages
+		will be sent, if <command>dnstap</command> is enabled
+		at compile time and active. The specified path may
+		optionally be prefixed by the string "file:" or "socket:",
+		indicating that the path is a normal file or a
+		UNIX-domain socket.  If there is no prefix,
+		the path is a UNIX-domain socket.
+	      </para>
+	      <para>
+		<command>dnstap-path</command> can only be set globally
+		in <command>options</command>. Currently, it can only be
+		set once while <command>named</command> is running;
+		once set, it cannot be changed by
+		<command>rndc reload</command> or
+		<command>rndc reconfig</command>.
+	      </para>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><command>dnstap-identity</command></term>
+	    <listitem>
+	      <para>
+		Specifies an <command>identity</command> string to send in
+		<command>dnstap</command> messages.
+	      </para>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><command>dnstap-identity</command></term>
+	    <listitem>
+	      <para>
+		Specifies a <command>version</command> string to send in
+		<command>dnstap</command> messages.
+	      </para>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
 	    <term><command>geoip-directory</command></term>
 	    <listitem>
 	      <para>
