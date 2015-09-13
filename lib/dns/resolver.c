@@ -7592,6 +7592,13 @@ resquery_response(isc_task_t *task, isc_event_t *event) {
 	isc_result_t broken_server;
 	badnstype_t broken_type = badns_response;
 	isc_boolean_t no_response;
+#ifdef DNSTAP
+	unsigned char zone[DNS_NAME_MAXWIRE];
+	dns_dtmsgtype_t dtmsgtype;
+	dns_compress_t cctx;
+	isc_region_t zr;
+	isc_buffer_t zb;
+#endif /* DNSTAP */
 
 	REQUIRE(VALID_QUERY(query));
 	fctx = query->fctx;
@@ -7784,36 +7791,26 @@ resquery_response(isc_task_t *task, isc_event_t *event) {
 	/*
 	 * Log the response via dnstap.
 	 */
-	do {
-		unsigned char zone[DNS_NAME_MAXWIRE];
-		dns_dtmsgtype_t dtmsgtype;
-		dns_compress_t cctx;
-		isc_region_t zr;
-		isc_buffer_t zb;
-
-		memset(&zr, 0, sizeof(zr));
-
-		result = dns_compress_init(&cctx, -1, fctx->res->mctx);
-		if (result != ISC_R_SUCCESS)
-			break;
-
+	memset(&zr, 0, sizeof(zr));
+	result = dns_compress_init(&cctx, -1, fctx->res->mctx);
+	if (result == ISC_R_SUCCESS) {
 		isc_buffer_init(&zb, zone, sizeof(zone));
 		dns_compress_setmethods(&cctx, DNS_COMPRESS_NONE);
 		result = dns_name_towire(&fctx->domain, &cctx, &zb);
 		if (result == ISC_R_SUCCESS)
 			isc_buffer_usedregion(&zb, &zr);
 		dns_compress_invalidate(&cctx);
+	}
 
-		if ((fctx->qmessage->flags & DNS_MESSAGEFLAG_RD) != 0)
-			dtmsgtype = DNS_DTTYPE_FR;
-		else
-			dtmsgtype = DNS_DTTYPE_RR;
+	if ((fctx->qmessage->flags & DNS_MESSAGEFLAG_RD) != 0)
+		dtmsgtype = DNS_DTTYPE_FR;
+	else
+		dtmsgtype = DNS_DTTYPE_RR;
 
-		dns_dt_send(fctx->res->view, dtmsgtype,
-			    &query->addrinfo->sockaddr,
-			    ISC_TF((query->options & DNS_FETCHOPT_TCP) != 0),
-			    &zr, &query->start, NULL, &devent->buffer);
-	} while (0);
+	dns_dt_send(fctx->res->view, dtmsgtype,
+		    &query->addrinfo->sockaddr,
+		    ISC_TF((query->options & DNS_FETCHOPT_TCP) != 0),
+		    &zr, &query->start, NULL, &devent->buffer);
 #endif /* DNSTAP */
 
 	/*

@@ -2387,14 +2387,17 @@ configure_dnstap(const cfg_obj_t **maps, dns_view_t *view)
 		str = cfg_obj_asstring(obj2);
 		if (strcasecmp(str, "client") == 0) {
 			dt |= DNS_DTTYPE_CQ|DNS_DTTYPE_CR;
+		} else if (strcasecmp(str, "auth") == 0) {
+			dt |= DNS_DTTYPE_AQ|DNS_DTTYPE_AR;
 		} else if (strcasecmp(str, "resolver") == 0) {
 			dt |= DNS_DTTYPE_RQ|DNS_DTTYPE_RR;
 		} else if (strcasecmp(str, "forwarder") == 0) {
 			dt |= DNS_DTTYPE_FQ|DNS_DTTYPE_FR;
-		} else if (strcasecmp(str, "auth") == 0) {
-			dt |= DNS_DTTYPE_AQ|DNS_DTTYPE_AR;
-		} else if (strcasecmp(str, "stub") == 0) {
-			dt |= DNS_DTTYPE_SQ|DNS_DTTYPE_SR;
+		} else if (strcasecmp(str, "all") == 0) {
+			dt |= DNS_DTTYPE_CQ|DNS_DTTYPE_CR|
+			      DNS_DTTYPE_AQ|DNS_DTTYPE_AR|
+			      DNS_DTTYPE_RQ|DNS_DTTYPE_RR|
+			      DNS_DTTYPE_FQ|DNS_DTTYPE_FR;
 		}
 
 		obj2 = cfg_tuple_get(obj, "mode");

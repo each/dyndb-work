@@ -1179,11 +1179,10 @@ static cfg_type_t cfg_type_masterstyle = {
  *      ...
  *  }
  *  
- *  ... where message type is one of:
- *  stub, client, resolver, auth, forwarder
+ *  ... where message type is one of: client, resolver, auth, forwarder, all
  */
-static const char *dnstap_types[] = { "stub", "client", "resolver",
-				      "auth", "forwarder", NULL };
+static const char *dnstap_types[] = { "client", "resolver",
+				      "auth", "forwarder", "all", NULL };
 
 static const char *dnstap_modes[] = { "query", "response", NULL };
 
