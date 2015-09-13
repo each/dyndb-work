@@ -109,7 +109,7 @@ unlock:
 }
 
 isc_result_t
-dns_dt_create(isc_mem_t *mctx, const char *sockpath,
+dns_dt_create(isc_mem_t *mctx, const char *path,
 	      unsigned int workers, dns_dtenv_t **envp)
 {
 #ifdef DNSTAP
@@ -117,11 +117,17 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 	fstrm_res res;
 	struct fstrm_iothr_options *fopt = NULL;
 	struct fstrm_unix_writer_options *fuwopt = NULL;
-	struct fstrm_writer *fw = NULL;
+	struct fstrm_file_options *ffwopt = NULL;
 	struct fstrm_writer_options *fwopt = NULL;
+	struct fstrm_writer *fw = NULL;
+	const char *filepfx = "file:", *sockpfx = "socket:";
+	size_t filelen = strlen(filepfx), socklen = strlen(sockpfx);
 	dns_dtenv_t *env = NULL;
 
-	/* TODO: log "opening dnstap socket %s", sockpath */
+	REQUIRE(path != NULL);
+	REQUIRE(envp != NULL && *envp == NULL);
+
+	/* TODO: log "opening dnstap socket %s", path */
 
 	env = isc_mem_get(mctx, sizeof(dns_dtenv_t));
 	if (env == NULL)
@@ -131,7 +137,7 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 
 	CHECK(isc_refcount_init(&env->refcount, 1));
 
-	env->socket_path = isc_mem_strdup(mctx, sockpath);
+	env->socket_path = isc_mem_strdup(mctx, path);
 	if (env->socket_path == NULL)
 		CHECK(ISC_R_NOMEMORY);
 
@@ -145,11 +151,32 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 	if (res != fstrm_res_success)
 		CHECK(ISC_R_FAILURE);
 
-	fuwopt = fstrm_unix_writer_options_init();
-	fstrm_unix_writer_options_set_socket_path(fuwopt, sockpath);
 
-	fw = fstrm_unix_writer_init(fuwopt, fwopt);
-	RUNTIME_CHECK(fw != NULL);
+	if (strlen(path) > filelen && strncmp(path, filepfx, filelen) == 0) {
+		/* file: prefix means write to a file */
+		path += filelen;
+
+		ffwopt = fstrm_file_options_init();
+		if (ffwopt == NULL)
+			CHECK(ISC_R_FAILURE);
+
+		fstrm_file_options_set_file_path(ffwopt, path);
+		fw = fstrm_file_writer_init(ffwopt, fwopt);
+	} else {
+		/* Eat the optional socket: prefix, if present */
+		if (strlen(path) > socklen &&
+		    strncmp(path, sockpfx, socklen) == 0)
+			path += socklen;
+
+		fuwopt = fstrm_unix_writer_options_init();
+		if (fuwopt == NULL)
+			CHECK(ISC_R_FAILURE);
+		fstrm_unix_writer_options_set_socket_path(fuwopt, path);
+		fw = fstrm_unix_writer_init(fuwopt, fwopt);
+	}
+
+	if (fw == NULL)
+		CHECK(ISC_R_FAILURE);
 
 	fopt = fstrm_iothr_options_init();
 	fstrm_iothr_options_set_num_input_queues(fopt, workers);
@@ -187,7 +214,7 @@ dns_dt_create(isc_mem_t *mctx, const char *sockpath,
 
 	return (result);
 #else
-	UNUSED(sockpath);
+	UNUSED(path);
 	UNUSED(workers);
 	UNUSED(envp);
 

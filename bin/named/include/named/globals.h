@@ -152,11 +152,11 @@ EXTERN const char *		lwresd_g_defaultpidfile INIT(NS_LOCALSTATEDIR
 #endif
 
 #ifdef DNSTAP
-EXTERN const char *		ns_g_defaultdnstapsock
+EXTERN const char *		ns_g_defaultdnstap
 					INIT(NS_LOCALSTATEDIR "/run/named/"
 							      "dnstap.sock");
 #else
-EXTERN const char *		ns_g_defaultdnstapsock	INIT(NULL)
+EXTERN const char *		ns_g_defaultdnstap	INIT(NULL)
 #endif /* DNSTAP */
 
 EXTERN const char *		ns_g_username		INIT(NULL);

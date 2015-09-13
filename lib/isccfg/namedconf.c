@@ -1003,11 +1003,11 @@ options_clauses[] = {
 	{ "coresize", &cfg_type_size, 0 },
 	{ "datasize", &cfg_type_size, 0 },
 #ifdef DNSTAP
-	{ "dnstap-socket", &cfg_type_qstring, 0 },
+	{ "dnstap-path", &cfg_type_qstring, 0 },
 	{ "dnstap-identity", &cfg_type_boolean, 0 },
 	{ "dnstap-version", &cfg_type_boolean, 0 },
 #else
-	{ "dnstap-socket", &cfg_type_qstring, CFG_CLAUSEFLAG_NOTCONFIGURED },
+	{ "dnstap-path", &cfg_type_qstring, CFG_CLAUSEFLAG_NOTCONFIGURED },
 	{ "dnstap-identity", &cfg_type_boolean, CFG_CLAUSEFLAG_NOTCONFIGURED },
 	{ "dnstap-version", &cfg_type_boolean, CFG_CLAUSEFLAG_NOTCONFIGURED },
 #endif /* DNSTAP */

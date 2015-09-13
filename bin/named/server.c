@@ -2367,7 +2367,7 @@ configure_dnstap(const cfg_obj_t **maps, dns_view_t *view)
 	isc_result_t result;
 	const cfg_obj_t *obj, *obj2;
 	const cfg_listelt_t *element;
-	const char *dsocket = ns_g_defaultdnstapsock;
+	const char *dpath = ns_g_defaultdnstap;
 	const cfg_obj_t *dlist = NULL;
 	dns_dtmsgtype_t dttypes = 0;
 
@@ -2418,11 +2418,11 @@ configure_dnstap(const cfg_obj_t **maps, dns_view_t *view)
 
 	if (ns_g_server->dtenv == NULL && dttypes != 0) {
 		obj = NULL;
-		result = ns_config_get(maps, "dnstap-socket", &obj);
+		result = ns_config_get(maps, "dnstap-path", &obj);
 		if (result == ISC_R_SUCCESS)
-			dsocket = cfg_obj_asstring(obj);
+			dpath = cfg_obj_asstring(obj);
 
-		CHECKM(dns_dt_create(ns_g_mctx, dsocket, ns_g_cpus,
+		CHECKM(dns_dt_create(ns_g_mctx, dpath, ns_g_cpus,
 				     &ns_g_server->dtenv),
 		       "unable to create dnstap environment");
 	}
