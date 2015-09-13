@@ -31,6 +31,7 @@
 #include <dns/dnstap.h>
 #include <dns/name.h>
 #include <dns/message.h>
+#include <dns/view.h>
 
 #ifdef DNSTAP
 #include "dnstap.pb-c.h"
@@ -231,20 +232,6 @@ dns_dt_setversion(dns_dtenv_t *env, const char *version) {
 	REQUIRE(VALID_DTENV(env));
 
 	return (toregion(env, &env->version, version));
-}
-
-void
-dns_dt_settypes(dns_dtenv_t *env, dns_dtmsgtype_t types) {
-	REQUIRE(VALID_DTENV(env));
-
-	env->msgtypes = types;
-}
-
-dns_dtmsgtype_t
-dns_dt_gettypes(dns_dtenv_t *env) {
-	REQUIRE(VALID_DTENV(env));
-
-	return (env->msgtypes);
 }
 
 static struct fstrm_iothr_queue *
@@ -478,25 +465,28 @@ setaddr(dtmsg_t *dm, isc_sockaddr_t *sa, isc_boolean_t tcp,
 }
 
 void
-dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
-	    isc_sockaddr_t *sa, isc_boolean_t tcp,
-	    isc_region_t *zone,
-	    isc_time_t *qtime, isc_time_t *rtime,
-	    isc_buffer_t *buf)
+dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
+	    isc_sockaddr_t *sa, isc_boolean_t tcp, isc_region_t *zone,
+	    isc_time_t *qtime, isc_time_t *rtime, isc_buffer_t *buf)
 {
 #ifdef DNSTAP
 	isc_time_t now, *t;
 	dtmsg_t dm;
 
-	if (env == NULL)
+	REQUIRE(DNS_VIEW_VALID(view));
+
+	if ((msgtype & view->dttypes) == 0)
 		return;
 
-	REQUIRE(VALID_DTENV(env));
+	if (view->dtenv == NULL)
+		return;
+
+	REQUIRE(VALID_DTENV(view->dtenv));
 
 	TIME_NOW(&now);
 	t = &now;
 
-	init_msg(env, &dm, dnstap_type(msgtype));
+	init_msg(view->dtenv, &dm, dnstap_type(msgtype));
 
 	switch (msgtype) {
 	case DNS_DTTYPE_AR:
@@ -566,11 +556,11 @@ dns_dt_send(dns_dtenv_t *env, dns_dtmsgtype_t msgtype,
 	}
 
 	if (pack_dt(&dm.d, &dm.buf, &dm.len) == ISC_R_SUCCESS)
-		send_dt(env, dm.buf, dm.len);
+		send_dt(view->dtenv, dm.buf, dm.len);
 
 	return;
 #else
-	UNUSED(env);
+	UNUSED(view);
 	UNUSED(msgtype);
 	UNUSED(sa);
 	UNUSED(zone);

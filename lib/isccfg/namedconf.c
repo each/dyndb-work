@@ -1003,17 +1003,13 @@ options_clauses[] = {
 	{ "coresize", &cfg_type_size, 0 },
 	{ "datasize", &cfg_type_size, 0 },
 #ifdef DNSTAP
-	{ "dnstap", &cfg_type_dnstap, 0 },
 	{ "dnstap-socket", &cfg_type_qstring, 0 },
-	{ "dnstap-send-identity", &cfg_type_boolean, 0 },
-	{ "dnstap-send-version", &cfg_type_boolean, 0 },
+	{ "dnstap-identity", &cfg_type_boolean, 0 },
+	{ "dnstap-version", &cfg_type_boolean, 0 },
 #else
-	{ "dnstap", &cfg_type_dnstap, CFG_CLAUSEFLAG_NOTCONFIGURED },
 	{ "dnstap-socket", &cfg_type_qstring, CFG_CLAUSEFLAG_NOTCONFIGURED },
-	{ "dnstap-send-identity", &cfg_type_boolean,
-	  CFG_CLAUSEFLAG_NOTCONFIGURED },
-	{ "dnstap-send-version", &cfg_type_boolean,
-	  CFG_CLAUSEFLAG_NOTCONFIGURED },
+	{ "dnstap-identity", &cfg_type_boolean, CFG_CLAUSEFLAG_NOTCONFIGURED },
+	{ "dnstap-version", &cfg_type_boolean, CFG_CLAUSEFLAG_NOTCONFIGURED },
 #endif /* DNSTAP */
 	{ "session-keyfile", &cfg_type_qstringornone, 0 },
 	{ "session-keyname", &cfg_type_astring, 0 },
@@ -1614,6 +1610,11 @@ view_clauses[] = {
 	{ "dnssec-must-be-secure",  &cfg_type_mustbesecure,
 	  CFG_CLAUSEFLAG_MULTI },
 	{ "dnssec-validation", &cfg_type_boolorauto, 0 },
+#ifdef DNSTAP
+	{ "dnstap", &cfg_type_dnstap, 0 },
+#else
+	{ "dnstap", &cfg_type_dnstap, CFG_CLAUSEFLAG_NOTCONFIGURED },
+#endif /* DNSTAP */
 	{ "dual-stack-servers", &cfg_type_nameportiplist, 0 },
 	{ "edns-udp-size", &cfg_type_uint32, 0 },
 	{ "empty-contact", &cfg_type_astring, 0 },

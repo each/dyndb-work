@@ -200,7 +200,8 @@ struct dns_view {
 
 	dns_zone_t *			managed_keys;
 	dns_zone_t *			redirect;
-	dns_name_t *			redirectzone;	/* points to redirectfixed
+	dns_name_t *			redirectzone;	/* points to
+							   redirectfixed
 							   when valid */
 	dns_fixedname_t 		redirectfixed;
 
@@ -218,6 +219,8 @@ struct dns_view {
 	unsigned char			secret[32];	/* Client secret */
 
 	dns_dtenv_t			*dtenv;		/* Dnstap environment */
+	dns_dtmsgtype_t			dttypes;	/* Dnstap message types
+							   to log */
 };
 
 #define DNS_VIEW_MAGIC			ISC_MAGIC('V','i','e','w')

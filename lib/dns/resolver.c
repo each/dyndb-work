@@ -2564,8 +2564,7 @@ resquery_send(resquery_t *query) {
 	else
 		dtmsgtype = DNS_DTTYPE_RQ;
 
-	dns_dt_send(fctx->res->view->dtenv, dtmsgtype,
-		    &query->addrinfo->sockaddr,
+	dns_dt_send(fctx->res->view, dtmsgtype, &query->addrinfo->sockaddr,
 		    ISC_TF((query->options & DNS_FETCHOPT_TCP) != 0),
 		    &zr, &query->start, NULL, &query->buffer);
 #endif /* DNSTAP */
@@ -7810,7 +7809,7 @@ resquery_response(isc_task_t *task, isc_event_t *event) {
 		else
 			dtmsgtype = DNS_DTTYPE_RR;
 
-		dns_dt_send(fctx->res->view->dtenv, dtmsgtype,
+		dns_dt_send(fctx->res->view, dtmsgtype,
 			    &query->addrinfo->sockaddr,
 			    ISC_TF((query->options & DNS_FETCHOPT_TCP) != 0),
 			    &zr, &query->start, NULL, &devent->buffer);

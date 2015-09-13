@@ -1157,9 +1157,9 @@ client_send(ns_client_t *client) {
 		result = client_sendpkg(client, &tcpbuffer);
 
 #ifdef DNSTAP
-		dns_dt_send(client->view->dtenv, dtmsgtype,
-			    &client->peeraddr, ISC_TRUE,
-			    &zr, &client->requesttime, NULL, &buffer);
+		dns_dt_send(client->view, dtmsgtype,
+			    &client->peeraddr, ISC_TRUE, &zr,
+			    &client->requesttime, NULL, &buffer);
 #endif /* DNSTAP */
 
 		isc_stats_increment(ns_g_server->tcpoutstats,
@@ -1169,9 +1169,9 @@ client_send(ns_client_t *client) {
 		result = client_sendpkg(client, &buffer);
 
 #ifdef DNSTAP
-		dns_dt_send(client->view->dtenv, dtmsgtype,
-			    &client->peeraddr, ISC_FALSE,
-			    &zr, &client->requesttime, NULL, &buffer);
+		dns_dt_send(client->view, dtmsgtype,
+			    &client->peeraddr, ISC_FALSE, &zr,
+			    &client->requesttime, NULL, &buffer);
 #endif /* DNSTAP */
 
 		isc_stats_increment(ns_g_server->udpoutstats,
@@ -2632,9 +2632,9 @@ client_request(isc_task_t *task, isc_event_t *event) {
 		else
 			dtmsgtype = DNS_DTTYPE_AQ;
 
-		dns_dt_send(view->dtenv, dtmsgtype,
-			    &client->peeraddr, TCP_CLIENT(client),
-			    NULL, &client->requesttime, NULL, buffer);
+		dns_dt_send(view, dtmsgtype, &client->peeraddr,
+			    TCP_CLIENT(client), NULL,
+			    &client->requesttime, NULL, buffer);
 #endif /* DNSTAP */
 
 		ns_query_start(client);
