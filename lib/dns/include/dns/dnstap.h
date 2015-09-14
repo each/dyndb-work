@@ -32,13 +32,18 @@
 #ifdef DNSTAP
 #include <fstrm.h>
 #include <protobuf-c/protobuf-c.h>
+#include <dns/dnstap.pb-c.h>
 #endif /* DNSTAP */
 
 #include <isc/refcount.h>
 #include <isc/region.h>
 #include <isc/sockaddr.h>
+#include <isc/time.h>
 #include <isc/types.h>
 
+#include <dns/name.h>
+#include <dns/rdataclass.h>
+#include <dns/rdatatype.h>
 #include <dns/types.h>
 
 /*%
@@ -66,13 +71,17 @@
 #define DNS_DTTYPE_RR 0x0080
 #define DNS_DTTYPE_FQ 0x0100
 #define DNS_DTTYPE_FR 0x0200
+#define DNS_DTTYPE_TQ 0x0400
+#define DNS_DTTYPE_TR 0x0800
 
 #define DNS_DTTYPE_QUERY \
-	(DNS_DTTYPE_SQ|DNS_DTTYPE_CQ|DNS_DTTYPE_AQ|DNS_DTTYPE_RQ|DNS_DTTYPE_FQ)
+	(DNS_DTTYPE_SQ|DNS_DTTYPE_CQ|DNS_DTTYPE_AQ|\
+	 DNS_DTTYPE_RQ|DNS_DTTYPE_FQ|DNS_DTTYPE_TQ)
 #define DNS_DTTYPE_RESPONSE \
-	(DNS_DTTYPE_SR|DNS_DTTYPE_CR|DNS_DTTYPE_AR|DNS_DTTYPE_RR|DNS_DTTYPE_FR)
+	(DNS_DTTYPE_SR|DNS_DTTYPE_CR|DNS_DTTYPE_AR|\
+	 DNS_DTTYPE_RR|DNS_DTTYPE_FR|DNS_DTTYPE_TR)
 
-typedef struct dns_dtenv {
+struct dns_dtenv {
 	unsigned int magic;
 	isc_refcount_t refcount;
 
@@ -83,7 +92,30 @@ typedef struct dns_dtenv {
 
 	isc_region_t identity;
 	isc_region_t version;
-} dns_dtenv_t;
+};
+
+struct dns_dtdata {
+	isc_mem_t *mctx;
+
+	Dnstap__Dnstap *frame;
+
+	isc_boolean_t query;
+	isc_boolean_t tcp;
+	dns_dtmsgtype_t type;
+
+	isc_time_t qtime;
+	isc_time_t rtime;
+
+	isc_region_t qaddr;
+	isc_region_t raddr;
+
+	isc_region_t msgdata;
+	dns_message_t *msg;
+
+	char namebuf[DNS_NAME_FORMATSIZE];
+	char typebuf[DNS_RDATATYPE_FORMATSIZE];
+	char classbuf[DNS_RDATACLASS_FORMATSIZE];
+};
 
 isc_result_t
 dns_dt_create(isc_mem_t *mctx, const char *path,
@@ -192,5 +224,52 @@ dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
  *
  *\li	'view' is a valid view, and 'view->dtenv' is NULL or is a 
  *	valid dnstap environment.
+ */
+
+isc_result_t
+dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp);
+/*%<
+ * Converts a raw dnstap frame in 'src' to a parsed dnstap data structure
+ * in '*destp'.
+ *
+ * Requires:
+ *\li	'src' is not NULL
+ *
+ *\li	'destp' is not NULL and '*destp' points to a valid buffer.
+ *
+ * Returns:
+ *\li	#ISC_R_SUCCESS on success
+ *
+ *\li	Other errors are possible.
+ */
+
+isc_result_t
+dns_dt_datatotext(dns_dtdata_t *d, isc_buffer_t **dest);
+/*%<
+ * Converts a parsed dnstap data structure 'd' to text, storing
+ * the result in the buffer 'dest'.  If 'dest' points to a dynamically
+ * allocated buffer, then it may be reallocated as needed. 
+ *
+ * (XXX: add a 'long_form' option to generate a detailed listing of
+ * dnstap data instead * of a one-line summary.)
+ *
+ * Requires:
+ *\li	'd' is not NULL
+ *
+ *\li	'dest' is not NULL and '*dest' points to a valid buffer.
+ *
+ * Returns:
+ *\li	#ISC_R_SUCCESS on success
+ *\li	#ISC_R_NOSPACE if buffer is not dynamic and runs out of space
+ *\li	#ISC_R_NOMEMORY if buffer is dynamic but memory could not be allocated
+ *
+ *\li	Other errors are possible.
+ */
+
+void
+dns_dtdata_free(dns_dtdata_t **dp);
+/*%<
+ * Frees the specified dns_dtdata structure and all its members,
+ * and sets *dp to NULL.
  */
 #endif /* _DNSTAP_H */

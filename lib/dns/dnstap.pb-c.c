@@ -210,7 +210,7 @@ const ProtobufCMessageDescriptor dnstap__dnstap__descriptor =
   (ProtobufCMessageInit) dnstap__dnstap__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCEnumValue dnstap__message__type__enum_values_by_number[10] =
+static const ProtobufCEnumValue dnstap__message__type__enum_values_by_number[12] =
 {
   { "AUTH_QUERY", "DNSTAP__MESSAGE__TYPE__AUTH_QUERY", 1 },
   { "AUTH_RESPONSE", "DNSTAP__MESSAGE__TYPE__AUTH_RESPONSE", 2 },
@@ -222,11 +222,13 @@ static const ProtobufCEnumValue dnstap__message__type__enum_values_by_number[10]
   { "FORWARDER_RESPONSE", "DNSTAP__MESSAGE__TYPE__FORWARDER_RESPONSE", 8 },
   { "STUB_QUERY", "DNSTAP__MESSAGE__TYPE__STUB_QUERY", 9 },
   { "STUB_RESPONSE", "DNSTAP__MESSAGE__TYPE__STUB_RESPONSE", 10 },
+  { "TOOL_QUERY", "DNSTAP__MESSAGE__TYPE__TOOL_QUERY", 11 },
+  { "TOOL_RESPONSE", "DNSTAP__MESSAGE__TYPE__TOOL_RESPONSE", 12 },
 };
 static const ProtobufCIntRange dnstap__message__type__value_ranges[] = {
-{1, 0},{0, 10}
+{1, 0},{0, 12}
 };
-static const ProtobufCEnumValueIndex dnstap__message__type__enum_values_by_name[10] =
+static const ProtobufCEnumValueIndex dnstap__message__type__enum_values_by_name[12] =
 {
   { "AUTH_QUERY", 0 },
   { "AUTH_RESPONSE", 1 },
@@ -238,6 +240,8 @@ static const ProtobufCEnumValueIndex dnstap__message__type__enum_values_by_name[
   { "RESOLVER_RESPONSE", 3 },
   { "STUB_QUERY", 8 },
   { "STUB_RESPONSE", 9 },
+  { "TOOL_QUERY", 10 },
+  { "TOOL_RESPONSE", 11 },
 };
 const ProtobufCEnumDescriptor dnstap__message__type__descriptor =
 {
@@ -246,9 +250,9 @@ const ProtobufCEnumDescriptor dnstap__message__type__descriptor =
   "Type",
   "Dnstap__Message__Type",
   "dnstap",
-  10,
+  12,
   dnstap__message__type__enum_values_by_number,
-  10,
+  12,
   dnstap__message__type__enum_values_by_name,
   1,
   dnstap__message__type__value_ranges,

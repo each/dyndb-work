@@ -703,6 +703,7 @@ XSLTPROC
 W3M
 PDFLATEX
 LATEX
+DNSTAPTARGETS
 DNSTAPOBJS
 DNSTAPSRCS
 PROTOC_C
@@ -19829,6 +19830,7 @@ fi
 
 DNSTAPSRCS=
 DNSTAPOBJS=
+DNSTAPTARGETS=
 if test "x$use_dnstap" != "xno"; then
         if ! $use_threads; then
                 as_fn_error $? "Dnstap requires threads." "$LINENO" 5
@@ -20039,7 +20041,9 @@ $as_echo "#define DNSTAP 1" >>confdefs.h
 
         DNSTAPSRCS='${DNSTAPSRCS}'
         DNSTAPOBJS='${DNSTAPOBJS}'
+        DNSTAPTARGETS='${DNSTAPTARGETS}'
 fi
+
 
 
 

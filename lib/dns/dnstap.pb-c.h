@@ -92,7 +92,17 @@ typedef enum _Dnstap__Message__Type {
    * STUB_RESPONSE is a DNS response message sent from a DNS server to a
    * stub resolver, from the perspective of the stub resolver.
    */
-  DNSTAP__MESSAGE__TYPE__STUB_RESPONSE = 10
+  DNSTAP__MESSAGE__TYPE__STUB_RESPONSE = 10,
+  /*
+   * TOOL_QUERY is a DNS query message sent from a DNS software tool to a
+   * DNS server, from the perspective of the tool.
+   */
+  DNSTAP__MESSAGE__TYPE__TOOL_QUERY = 11,
+  /*
+   * TOOL_RESPONSE is a DNS response message received by a DNS software
+   * tool from a DNS server, from the perspective of the tool.
+   */
+  DNSTAP__MESSAGE__TYPE__TOOL_RESPONSE = 12
     PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(DNSTAP__MESSAGE__TYPE)
 } Dnstap__Message__Type;
 /*

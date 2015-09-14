@@ -46,11 +46,16 @@ NOSYMLIBS =	${ISCNOSYMLIBS} @LIBS@
 
 SUBDIRS = 
 
+DNSTAPTARGETS =	dnstap-read@EXEEXT@
 TARGETS =	arpaname@EXEEXT@ named-journalprint@EXEEXT@ \
 		named-rrchecker@EXEEXT@  nsec3hash@EXEEXT@ \
-		genrandom@EXEEXT@ isc-hmac-fixup@EXEEXT@ mdig@EXEEXT@
+		genrandom@EXEEXT@ isc-hmac-fixup@EXEEXT@ mdig@EXEEXT@ \
+		@DNSTAPTARGETS@
+
+DNSTAPSRCS  =	dnstap-read.c
 SRCS =		arpaname.c named-journalprint.c named-rrchecker.c \
-		nsec3hash.c genrandom.c isc-hmac-fixup.c mdig.c
+		nsec3hash.c genrandom.c isc-hmac-fixup.c mdig.c \
+		@DNSTAPSRCS@
 
 MANPAGES =	arpaname.1 named-journalprint.8 named-rrchecker.1 nsec3hash.8 \
 		genrandom.8 isc-hmac-fixup.8 mdig.1
@@ -92,6 +97,11 @@ genrandom@EXEEXT@: genrandom.@O@
 mdig@EXEEXT@: mdig.@O@ ${ISCDEPLIBS} ${DNSDEPLIBS} ${BIND9DEPLIBS}
 	export BASEOBJS="mdig.@O@"; \
 	export LIBS0="${DNSLIBS} ${BIND9LIBS}"; \
+	${FINALBUILDCMD}
+
+dnstap-read@EXEEXT@: dnstap-read.@O@ ${ISCDEPLIBS} ${DNSDEPLIBS}
+	export BASEOBJS="dnstap-read.@O@"; \
+	export LIBS0="${DNSLIBS}"; \
 	${FINALBUILDCMD}
 
 doc man:: ${MANOBJS}

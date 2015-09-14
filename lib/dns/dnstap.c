@@ -31,10 +31,12 @@
 #include <dns/dnstap.h>
 #include <dns/name.h>
 #include <dns/message.h>
+#include <dns/rdataset.h>
+#include <dns/result.h>
 #include <dns/view.h>
 
 #ifdef DNSTAP
-#include "dnstap.pb-c.h"
+#include <dns/dnstap.pb-c.h>
 #include <protobuf-c/protobuf-c.h>
 #endif /* DNSTAP */
 
@@ -44,12 +46,12 @@
 #define DNSTAP_CONTENT_TYPE	"protobuf:dnstap.Dnstap"
 #define DNSTAP_INITIAL_BUF_SIZE 256
 
-typedef struct dtmsg {
+typedef struct dns_dtmsg {
 	void *buf;
 	size_t len;
 	Dnstap__Dnstap d;
 	Dnstap__Message m;
-} dtmsg_t;
+} dns_dtmsg_t;
 
 #define CHECK(x) do { \
 	result = (x); \
@@ -208,7 +210,7 @@ dns_dt_create(isc_mem_t *mctx, const char *path,
 			isc_mem_free(env->mctx, env->socket_path);
 		if (env->mctx != NULL)
 			isc_mem_detach(&env->mctx);
-		if (env != NULL) 
+		if (env != NULL)
 			isc_mem_put(mctx, env, sizeof(dns_dtenv_t));
 	}
 
@@ -400,7 +402,7 @@ send_dt(dns_dtenv_t *env, void *buf, size_t len) {
 }
 
 static void
-init_msg(dns_dtenv_t *env, dtmsg_t *dm, Dnstap__Message__Type mtype) {
+init_msg(dns_dtenv_t *env, dns_dtmsg_t *dm, Dnstap__Message__Type mtype) {
 	memset(dm, 0, sizeof(*dm));
 	dm->d.base.descriptor = &dnstap__dnstap__descriptor;
 	dm->m.base.descriptor = &dnstap__message__descriptor;
@@ -444,6 +446,10 @@ dnstap_type(dns_dtmsgtype_t msgtype) {
 		return (DNSTAP__MESSAGE__TYPE__FORWARDER_QUERY);
 	case DNS_DTTYPE_FR:
 		return (DNSTAP__MESSAGE__TYPE__FORWARDER_RESPONSE);
+	case DNS_DTTYPE_TQ:
+		return (DNSTAP__MESSAGE__TYPE__TOOL_QUERY);
+	case DNS_DTTYPE_TR:
+		return (DNSTAP__MESSAGE__TYPE__TOOL_RESPONSE);
 	default:
 		INSIST(0);
 	}
@@ -457,7 +463,7 @@ cpbuf(isc_buffer_t *buf, ProtobufCBinaryData *p, protobuf_c_boolean *has) {
 }
 
 static void
-setaddr(dtmsg_t *dm, isc_sockaddr_t *sa, isc_boolean_t tcp,
+setaddr(dns_dtmsg_t *dm, isc_sockaddr_t *sa, isc_boolean_t tcp,
 	ProtobufCBinaryData *addr, protobuf_c_boolean *has_addr,
 	isc_uint32_t *port, protobuf_c_boolean *has_port)
 {
@@ -498,7 +504,7 @@ dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
 {
 #ifdef DNSTAP
 	isc_time_t now, *t;
-	dtmsg_t dm;
+	dns_dtmsg_t dm;
 
 	REQUIRE(DNS_VIEW_VALID(view));
 
@@ -601,4 +607,343 @@ void
 dns_dt_shutdown() {
 	if (dt_mctx != NULL)
 		isc_mem_detach(&dt_mctx);
+}
+
+static isc_result_t
+putstr(isc_buffer_t **b, const char *str) {
+	isc_result_t result;
+
+	result = isc_buffer_reserve(b, strlen(str));
+	if (result != ISC_R_SUCCESS)
+		return (ISC_R_NOSPACE);
+
+	isc_buffer_putstr(*b, str);
+	return (ISC_R_SUCCESS);
+}
+
+static isc_result_t
+putaddr(isc_buffer_t **b, isc_region_t *ip) {
+	char buf[64];
+
+	if (ip->length == 4) {
+		if (!inet_ntop(AF_INET, ip->base, buf, sizeof(buf)))
+			return (ISC_R_FAILURE);
+	} else if (ip->length == 16) {
+		if (!inet_ntop(AF_INET6, ip->base, buf, sizeof(buf)))
+			return (ISC_R_FAILURE);
+	} else
+		return (ISC_R_FAILURE);
+
+	return (putstr(b, buf));
+}
+
+isc_result_t
+dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp) {
+	isc_result_t result;
+	Dnstap__Message *m;
+	dns_dtdata_t *d = NULL;
+	isc_buffer_t b;
+
+	REQUIRE(src != NULL);
+	REQUIRE(destp != NULL && *destp == NULL);
+
+	d = isc_mem_get(mctx, sizeof(*d));
+	if (d == NULL)
+		return (ISC_R_NOMEMORY);
+
+	memset(d, 0, sizeof(*d));
+	isc_mem_attach(mctx, &d->mctx);
+
+	d->frame = dnstap__dnstap__unpack(NULL, src->length, src->base);
+	if (d->frame == NULL)
+		CHECK(ISC_R_NOMEMORY);
+
+	if (d->frame->type != DNSTAP__DNSTAP__TYPE__MESSAGE)
+		CHECK(ISC_R_FAILURE);
+
+	m = d->frame->message;
+
+	switch (m->type) {
+	case DNSTAP__MESSAGE__TYPE__AUTH_QUERY:
+	case DNSTAP__MESSAGE__TYPE__RESOLVER_QUERY:
+	case DNSTAP__MESSAGE__TYPE__CLIENT_QUERY:
+	case DNSTAP__MESSAGE__TYPE__FORWARDER_QUERY:
+	case DNSTAP__MESSAGE__TYPE__STUB_QUERY:
+	case DNSTAP__MESSAGE__TYPE__TOOL_QUERY:
+		d->query = ISC_TRUE;
+		break;
+	case DNSTAP__MESSAGE__TYPE__AUTH_RESPONSE:
+	case DNSTAP__MESSAGE__TYPE__RESOLVER_RESPONSE:
+	case DNSTAP__MESSAGE__TYPE__CLIENT_RESPONSE:
+	case DNSTAP__MESSAGE__TYPE__FORWARDER_RESPONSE:
+	case DNSTAP__MESSAGE__TYPE__STUB_RESPONSE:
+	case DNSTAP__MESSAGE__TYPE__TOOL_RESPONSE:
+		d->query = ISC_FALSE;
+		break;
+	default:
+		CHECK(ISC_R_FAILURE);
+	}
+
+	/* Parse DNS message */
+	if (d->query && m->has_query_message) {
+		d->msgdata.base = m->query_message.data;
+		d->msgdata.length = m->query_message.len;
+	} else if (!d->query && m->has_response_message) {
+		d->msgdata.base = m->response_message.data;
+		d->msgdata.length = m->response_message.len;
+	}
+
+	isc_buffer_init(&b, d->msgdata.base, d->msgdata.length);
+	isc_buffer_add(&b, d->msgdata.length);
+	CHECK(dns_message_create(mctx, DNS_MESSAGE_INTENTPARSE, &d->msg));
+	result = dns_message_parse(d->msg, &b, 0);
+	if (result == DNS_R_RECOVERABLE)
+		result = ISC_R_SUCCESS;
+	CHECK(result);
+
+	/* Timestamp */
+	if (d->query) {
+		if (m->has_query_time_sec && m->has_query_time_nsec)
+			isc_time_set(&d->qtime, m->query_time_sec,
+				     m->query_time_nsec);
+	} else {
+		if (m->has_response_time_sec && m->has_response_time_nsec)
+			isc_time_set(&d->rtime, m->response_time_sec,
+				     m->response_time_nsec);
+	}
+
+	/* Type mnemonic */
+	switch (m->type) {
+	case DNSTAP__MESSAGE__TYPE__AUTH_QUERY:
+		d->type = DNS_DTTYPE_AQ;
+		break;
+	case DNSTAP__MESSAGE__TYPE__AUTH_RESPONSE:
+		d->type = DNS_DTTYPE_AR;
+		break;
+	case DNSTAP__MESSAGE__TYPE__CLIENT_QUERY:
+		d->type = DNS_DTTYPE_CQ;
+		break;
+	case DNSTAP__MESSAGE__TYPE__CLIENT_RESPONSE:
+		d->type = DNS_DTTYPE_CR;
+		break;
+	case DNSTAP__MESSAGE__TYPE__FORWARDER_QUERY:
+		d->type = DNS_DTTYPE_FQ;
+		break;
+	case DNSTAP__MESSAGE__TYPE__FORWARDER_RESPONSE:
+		d->type = DNS_DTTYPE_FR;
+		break;
+	case DNSTAP__MESSAGE__TYPE__RESOLVER_QUERY:
+		d->type = DNS_DTTYPE_RQ;
+		break;
+	case DNSTAP__MESSAGE__TYPE__RESOLVER_RESPONSE:
+		d->type = DNS_DTTYPE_RR;
+		break;
+	case DNSTAP__MESSAGE__TYPE__STUB_QUERY:
+		d->type = DNS_DTTYPE_SQ;
+		break;
+	case DNSTAP__MESSAGE__TYPE__STUB_RESPONSE:
+		d->type = DNS_DTTYPE_SR;
+		break;
+	case DNSTAP__MESSAGE__TYPE__TOOL_QUERY:
+		d->type = DNS_DTTYPE_TQ;
+		break;
+	case DNSTAP__MESSAGE__TYPE__TOOL_RESPONSE:
+		d->type = DNS_DTTYPE_TR;
+		break;
+	default:
+		return (ISC_R_FAILURE);
+	}
+
+	/* Peer address */
+	switch (d->type) {
+	case DNS_DTTYPE_CQ:
+	case DNS_DTTYPE_CR:
+	case DNS_DTTYPE_AQ:
+	case DNS_DTTYPE_AR:
+		if (m->has_query_address) {
+			d->qaddr.base = m->query_address.data;
+			d->qaddr.length = m->query_address.len;
+		}
+		break;
+	default:
+		if (m->has_response_address) {
+			d->raddr.base = m->response_address.data;
+			d->raddr.length = m->response_address.len;
+		}
+		break;
+	}
+
+	/* Socket protocol */
+	if (m->has_socket_protocol) {
+		const ProtobufCEnumValue *type =
+			protobuf_c_enum_descriptor_get_value(
+				&dnstap__socket_protocol__descriptor,
+				m->socket_protocol);
+		if (type != NULL && 
+		    type->value == DNSTAP__SOCKET_PROTOCOL__TCP)
+			d->tcp = ISC_TRUE;
+		else 
+			d->tcp = ISC_FALSE;
+	}
+
+	/* Query tuple */
+	if (d->msg != NULL) {
+		dns_name_t *name = NULL;
+		dns_rdataset_t *rdataset;
+
+		CHECK(dns_message_firstname(d->msg, DNS_SECTION_QUESTION));
+		dns_message_currentname(d->msg, DNS_SECTION_QUESTION, &name);
+		rdataset = ISC_LIST_HEAD(name->list);
+
+		dns_name_format(name, d->namebuf, sizeof(d->namebuf));
+		dns_rdatatype_format(rdataset->type, d->typebuf,
+				     sizeof(d->typebuf));
+		dns_rdataclass_format(rdataset->rdclass, d->classbuf,
+				      sizeof(d->classbuf));
+	}
+
+	*destp = d;
+
+ cleanup:
+	if (result != ISC_R_SUCCESS)
+		dns_dtdata_free(&d);
+
+	return (result);
+}
+
+isc_result_t
+dns_dt_datatotext(dns_dtdata_t *d, isc_buffer_t **dest) {
+	isc_result_t result;
+	char buf[100];
+
+	REQUIRE(d != NULL);
+	REQUIRE(dest != NULL && *dest != NULL);
+
+	memset(buf, 0, sizeof(buf));
+
+	/* Timestamp */
+	if (d->query && !isc_time_isepoch(&d->qtime))
+		isc_time_formattimestamp(&d->qtime, buf, sizeof(buf));
+	else if (!d->query && !isc_time_isepoch(&d->rtime))
+		isc_time_formattimestamp(&d->rtime, buf, sizeof(buf));
+
+	if (buf[0] == '\0')
+		CHECK(putstr(dest, "???\?-?\?-?? ??:??:??.??? "));
+	else {
+		CHECK(putstr(dest, buf));
+		CHECK(putstr(dest, " "));
+	}
+
+	/* Type mnemonic */
+	switch (d->type) {
+	case DNS_DTTYPE_AQ:
+		CHECK(putstr(dest, "AQ "));
+		break;
+	case DNS_DTTYPE_AR:
+		CHECK(putstr(dest, "AR "));
+		break;
+	case DNS_DTTYPE_CQ:
+		CHECK(putstr(dest, "CQ "));
+		break;
+	case DNS_DTTYPE_CR:
+		CHECK(putstr(dest, "CR "));
+		break;
+	case DNS_DTTYPE_FQ:
+		CHECK(putstr(dest, "FQ "));
+		break;
+	case DNS_DTTYPE_FR:
+		CHECK(putstr(dest, "FR "));
+		break;
+	case DNS_DTTYPE_RQ:
+		CHECK(putstr(dest, "RQ "));
+		break;
+	case DNS_DTTYPE_RR:
+		CHECK(putstr(dest, "RR "));
+		break;
+	case DNS_DTTYPE_SQ:
+		CHECK(putstr(dest, "SQ "));
+		break;
+	case DNS_DTTYPE_SR:
+		CHECK(putstr(dest, "SR "));
+		break;
+	case DNS_DTTYPE_TQ:
+		CHECK(putstr(dest, "TQ "));
+		break;
+	case DNS_DTTYPE_TR:
+		CHECK(putstr(dest, "TR "));
+		break;
+	default:
+		return (ISC_R_FAILURE);
+	}
+
+	/* Peer address */
+	switch (d->type) {
+	case DNS_DTTYPE_AQ:
+	case DNS_DTTYPE_AR:
+	case DNS_DTTYPE_CQ:
+	case DNS_DTTYPE_CR:
+		CHECK(putaddr(dest, &d->qaddr));
+		break;
+	default:
+		CHECK(putaddr(dest, &d->raddr));
+		break;
+	}
+	CHECK(putstr(dest, " "));
+
+	/* Protocol */
+	if (d->tcp)
+		CHECK(putstr(dest, "TCP "));
+	else
+		CHECK(putstr(dest, "UDP "));
+
+	/* Message size */
+	if (d->msgdata.base != NULL) {
+		snprintf(buf, sizeof(buf), "%zdb ", (size_t) d->msgdata.length);
+		CHECK(putstr(dest, buf));
+	} else
+		CHECK(putstr(dest, "0b "));
+
+	/* Query tuple */
+	if (d->namebuf[0] == '\0')
+		CHECK(putstr(dest, "? "));
+	else {
+		CHECK(putstr(dest, d->namebuf));
+		CHECK(putstr(dest, "/"));
+	}
+
+	if (d->classbuf[0] == '\0')
+		CHECK(putstr(dest, "? "));
+	else {
+		CHECK(putstr(dest, d->classbuf));
+		CHECK(putstr(dest, "/"));
+	}
+
+	if (d->typebuf[0] == '\0')
+		CHECK(putstr(dest, "?"));
+	else 
+		CHECK(putstr(dest, d->typebuf));
+
+	CHECK(isc_buffer_reserve(dest, 1));
+	isc_buffer_putuint8(*dest, 0);
+
+ cleanup:
+	return (result);
+}
+
+void
+dns_dtdata_free(dns_dtdata_t **dp) {
+	dns_dtdata_t *d;
+
+	REQUIRE(dp != NULL && *dp != NULL);
+
+	d = *dp;
+
+	if (d->msg != NULL)
+		dns_message_destroy(&d->msg);
+	if (d->frame != NULL)
+		dnstap__dnstap__free_unpacked(d->frame, NULL);
+
+	isc_mem_putanddetach(&d->mctx, d, sizeof(*d));
+
+	*dp = NULL;
 }
