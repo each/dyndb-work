@@ -1,7 +1,7 @@
 /*
  * Driver API implementation and main entry point for BIND.
  *
- * BIND calls dyndb_verison() before loading, dyndb_init() during startup
+ * BIND calls dyndb_version() before loading, dyndb_init() during startup
  * and dyndb_destroy() during shutdown.
  *
  * It is completely up to implementation what to do.
@@ -30,17 +30,16 @@
 
 #include "db.h"
 #include "log.h"
-#include "instance_manager.h"
-
-static dns_dbimplementation_t *sampledb_imp;
-const char *impname = "dynamic-sample";
+#include "instance.h"
+#include "util.h"
 
 dns_dyndb_destroy_t dyndb_destroy;
 dns_dyndb_register_t dyndb_init;
 dns_dyndb_version_t dyndb_version;
 
 /*
- * Driver init is is called once during startup and then on every reload.
+ * Driver init is is called for each dyndb section in named.conf
+ * once during startup and then again on every reload.
  *
  * @code
  * dyndb example-name "sample.so" { param1 param2 };
@@ -56,16 +55,17 @@ dns_dyndb_version_t dyndb_version;
  *                 definition. The example above will have
  *                 argv[0] = "param1";
  *                 argv[1] = "param2";
+ * @param[out] instp Pointer to instance-specific data (for one dyndb section).
  */
 isc_result_t
 dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
-	   const dns_dyndbctx_t *dctx)
+	   const dns_dyndbctx_t *dctx, void **instp)
 {
 	isc_result_t result;
-	dns_dbimplementation_t *sampledb_imp_new = NULL;
 	unsigned int argc;
 	char **argv = NULL;
 	char *s = NULL;
+	sample_instance_t *sample_inst = NULL;
 
 	REQUIRE(name != NULL);
 	REQUIRE(dctx != NULL);
@@ -85,16 +85,6 @@ dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
 		isc_hash_ctxdetach(&isc_hashctx);
 	isc_hashctx = dctx->hctx;
 
-	log_info("registering dynamic sample driver for instance '%s'", name);
-
-	/* Register new DNS DB implementation. */
-	result = dns_db_register(impname, create_db, NULL, mctx,
-				 &sampledb_imp_new);
-	if (result != ISC_R_SUCCESS && result != ISC_R_EXISTS)
-		return (result);
-	else if (result == ISC_R_SUCCESS)
-		sampledb_imp = sampledb_imp_new;
-
 	s = isc_mem_strdup(mctx, parameters);
 	if (s == NULL) {
 		result = ISC_R_NOMEMORY;
@@ -106,7 +96,15 @@ dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
 		goto cleanup;
 
 	/* Finally, create the instance. */
-	result = manager_create_db_instance(mctx, name, argc, argv, dctx);
+	CHECK(new_sample_instance(mctx, name, argc, argv, dctx, &sample_inst));
+
+	/*
+	 * This is an example so we create and load zones
+	 * right now.  This step can be arbitrarily postponed.
+	 */
+	CHECK(load_sample_instance_zones(sample_inst));
+
+	*instp = sample_inst;
 
  cleanup:
 	if (s != NULL)
@@ -118,19 +116,14 @@ dyndb_init(isc_mem_t *mctx, const char *name, const char *parameters,
 }
 
 /*
- * Driver destroy is called on every reload and then once during shutdown.
+ * Driver destroy is called for every instance on every reload and then once
+ * during shutdown.
  *
- * @warning
- * It is also called for every dyndb section in named.conf but there is no
- * way how to find out for which instance.
+ * @param[out] instp Pointer to instance-specific data (for one dyndb section).
  */
 void
-dyndb_destroy(void) {
-	/* Only unregister the implementation if it was registered by us. */
-	if (sampledb_imp != NULL)
-		dns_db_unregister(&sampledb_imp);
-
-	destroy_manager();
+dyndb_destroy(void **instp) {
+	destroy_sample_instance((sample_instance_t **)instp);
 }
 
 /*

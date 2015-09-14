@@ -30,7 +30,7 @@ create_zone(sample_instance_t * const inst, dns_name_t * const name,
 {
 	isc_result_t result;
 	dns_zone_t *raw = NULL;
-	const char *zone_argv[2];
+	const char *zone_argv[1];
 	char zone_name[DNS_NAME_FORMATSIZE];
 	dns_acl_t *acl_any = NULL;
 
@@ -38,14 +38,13 @@ create_zone(sample_instance_t * const inst, dns_name_t * const name,
 	REQUIRE(name != NULL);
 	REQUIRE(rawp != NULL && *rawp == NULL);
 
-	zone_argv[0] = impname;
-	zone_argv[1] = inst->db_name;
+	zone_argv[0] = inst->db_name;
 
 	CHECK(dns_zone_create(&raw, inst->mctx));
 	CHECK(dns_zone_setorigin(raw, name));
 	dns_zone_setclass(raw, dns_rdataclass_in);
 	dns_zone_settype(raw, dns_zone_master);
-	CHECK(dns_zone_setdbtype(raw, 2, zone_argv));
+	CHECK(dns_zone_setdbtype(raw, 1, zone_argv));
 	CHECK(dns_zonemgr_managezone(inst->zmgr, raw));
 
 	/* This is completely insecure - use some sensible values instead! */

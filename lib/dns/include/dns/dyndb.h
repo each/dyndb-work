@@ -66,17 +66,18 @@ struct dns_dyndbctx {
 typedef isc_result_t dns_dyndb_register_t(isc_mem_t *mctx,
 					  const char *name,
 					  const char *parameters,
-					  const dns_dyndbctx_t *dctx);
+					  const dns_dyndbctx_t *dctx,
+					  void **inst);
 /*%
  * Register a new driver instance. 'name' should generally be unique.
  * 'parameters' contains the driver configuration text. 'dctx' is the
- * initialization context.
+ * initialization context. 'inst' is driver instance handle.
  */
 
-typedef void dns_dyndb_destroy_t(void);
+typedef void dns_dyndb_destroy_t(void **instp);
 /*%
  * Destroy a driver instance. Dereference any reference-counted
- * variables passed in via 'dctx' in the register function.
+ * variables passed in 'dctx' and 'inst' in the register function.
  */
 
 typedef int dns_dyndb_version_t(unsigned int *flags);

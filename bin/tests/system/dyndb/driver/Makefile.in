@@ -34,10 +34,10 @@ DEPLIBS =	${DNSDEPLIBS} ${ISCDEPLIBS}
 LIBS =		${DNSLIBS} ${ISCLIBS} @LIBS@
 
 
-SRCS =		db.c driver.c instance.c instance_manager.c \
+SRCS =		db.c driver.c instance.c \
 		lock.c log.c syncptr.c zone.c
 
-OBJS =		db.@O@ driver.@O@ instance.@O@ instance_manager.@O@ \
+OBJS =		db.@O@ driver.@O@ instance.@O@ \
 		lock.@O@ log.@O@ syncptr.@O@ zone.@O@
 
 TARGETS =	sample.@SO@

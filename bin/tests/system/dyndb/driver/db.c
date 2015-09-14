@@ -23,7 +23,6 @@
 
 #include "db.h"
 #include "instance.h"
-#include "instance_manager.h"
 #include "syncptr.h"
 #include "util.h"
 
@@ -764,9 +763,9 @@ create_db(isc_mem_t *mctx, dns_name_t *origin, dns_dbtype_t type,
 
 	REQUIRE(type == dns_dbtype_zone);
 	REQUIRE(rdclass == dns_rdataclass_in);
-	REQUIRE(argc == 1);
-	REQUIRE(argv != NULL); /* database-specific: instance name */
-	REQUIRE(driverarg == NULL); /* unused */
+	REQUIRE(argc == 0);
+	REQUIRE(argv != NULL);
+	REQUIRE(driverarg != NULL); /* pointer to driver instance */
 	REQUIRE(dbp != NULL && *dbp == NULL);
 
 	UNUSED(driverarg); /* no driver-specific configuration */
@@ -790,7 +789,7 @@ create_db(isc_mem_t *mctx, dns_name_t *origin, dns_dbtype_t type,
 	CHECK(isc_refcount_init(&sampledb->refs, 1));
 
 	/* Translate instance name to instance pointer. */
-	CHECK(manager_get_sample_instance(argv[0], &sampledb->inst));
+	sampledb->inst = driverarg;
 
 	/* Create internal instance of RBT DB implementation from BIND. */
 	CHECK(dns_db_create(mctx, "rbt", origin, dns_dbtype_zone,
