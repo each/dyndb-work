@@ -29,6 +29,7 @@
 #include <isc/util.h>
 
 #include <dns/dnstap.h>
+#include <dns/log.h>
 #include <dns/name.h>
 #include <dns/message.h>
 #include <dns/rdataset.h>
@@ -129,7 +130,9 @@ dns_dt_create(isc_mem_t *mctx, const char *path,
 	REQUIRE(path != NULL);
 	REQUIRE(envp != NULL && *envp == NULL);
 
-	/* TODO: log "opening dnstap socket %s", path */
+	isc_log_write(dns_lctx, DNS_LOGCATEGORY_DNSTAP,
+		      DNS_LOGMODULE_DNSTAP, ISC_LOG_INFO,
+		      "opening dnstap destination '%s'", path);
 
 	env = isc_mem_get(mctx, sizeof(dns_dtenv_t));
 	if (env == NULL)
@@ -185,7 +188,9 @@ dns_dt_create(isc_mem_t *mctx, const char *path,
 
 	env->iothr = fstrm_iothr_init(fopt, &fw);
 	if (env->iothr == NULL) {
-		/* TODO: log "fstrm_iothr_init failed" */
+		isc_log_write(dns_lctx, DNS_LOGCATEGORY_DNSTAP,
+			      DNS_LOGMODULE_DNSTAP, ISC_LOG_WARNING,
+			      "unable to initialize dnstap I/O thread");
 		fstrm_writer_destroy(&fw);
 		CHECK(ISC_R_FAILURE);
 	}
@@ -313,7 +318,9 @@ destroy(dns_dtenv_t **envp) {
 
 	REQUIRE(envp != NULL && VALID_DTENV(*envp));
 
-	/* TODO: log "closing dnstap socket" */
+	isc_log_write(dns_lctx, DNS_LOGCATEGORY_DNSTAP,
+		      DNS_LOGMODULE_DNSTAP, ISC_LOG_INFO,
+		      "closing dnstap");
 	env = *envp;
 
 	env->magic = 0;
@@ -469,10 +476,8 @@ setaddr(dns_dtmsg_t *dm, isc_sockaddr_t *sa, isc_boolean_t tcp,
 {
 	int family = isc_sockaddr_pf(sa);
 
-	if (family != AF_INET6 && family != AF_INET) {
-		/* TODO: log error */
+	if (family != AF_INET6 && family != AF_INET)
 		return;
-	}
 
 	if (family == AF_INET6) {
 		dm->m.socket_family = DNSTAP__SOCKET_FAMILY__INET6;
@@ -526,6 +531,8 @@ dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
 	case DNS_DTTYPE_CR:
 	case DNS_DTTYPE_RR:
 	case DNS_DTTYPE_FR:
+	case DNS_DTTYPE_SR:
+	case DNS_DTTYPE_TR:
 		if (rtime != NULL)
 			t = rtime;
 
@@ -545,6 +552,8 @@ dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
 	case DNS_DTTYPE_CQ:
 	case DNS_DTTYPE_FQ:
 	case DNS_DTTYPE_RQ:
+	case DNS_DTTYPE_SQ:
+	case DNS_DTTYPE_TQ:
 		if (qtime != NULL)
 			t = qtime;
 
@@ -556,7 +565,9 @@ dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
 		cpbuf(buf, &dm.m.query_message, &dm.m.has_query_message);
 		break;
 	default:
-		/* TODO log error */
+		isc_log_write(dns_lctx, DNS_LOGCATEGORY_DNSTAP,
+			      DNS_LOGMODULE_DNSTAP, ISC_LOG_ERROR,
+			      "invalid dnstap message type %d", msgtype);
 		return;
 	}
 
@@ -565,6 +576,10 @@ dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
 	case DNS_DTTYPE_AR:
 	case DNS_DTTYPE_CQ:
 	case DNS_DTTYPE_CR:
+	case DNS_DTTYPE_SR:
+	case DNS_DTTYPE_SQ:
+	case DNS_DTTYPE_TR:
+	case DNS_DTTYPE_TQ:
 		setaddr(&dm, sa, tcp,
 			&dm.m.query_address, &dm.m.has_query_address,
 			&dm.m.query_port, &dm.m.has_query_port);
@@ -584,8 +599,8 @@ dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
 			&dm.m.response_port, &dm.m.has_response_port);
 		break;
 	default:
-		/* TODO: log error */
-		break;
+		/* If this were true we would already have returned */
+		INSIST(0);
 	}
 
 	if (pack_dt(&dm.d, &dm.buf, &dm.len) == ISC_R_SUCCESS)
@@ -632,7 +647,7 @@ putaddr(isc_buffer_t **b, isc_region_t *ip) {
 		if (!inet_ntop(AF_INET6, ip->base, buf, sizeof(buf)))
 			return (ISC_R_FAILURE);
 	} else
-		return (ISC_R_FAILURE);
+		return (ISC_R_BADADDRESSFORM);
 
 	return (putstr(b, buf));
 }
@@ -659,7 +674,7 @@ dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp) {
 		CHECK(ISC_R_NOMEMORY);
 
 	if (d->frame->type != DNSTAP__DNSTAP__TYPE__MESSAGE)
-		CHECK(ISC_R_FAILURE);
+		CHECK(DNS_R_BADDNSTAP);
 
 	m = d->frame->message;
 
@@ -681,7 +696,7 @@ dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp) {
 		d->query = ISC_FALSE;
 		break;
 	default:
-		CHECK(ISC_R_FAILURE);
+		CHECK(DNS_R_BADDNSTAP);
 	}
 
 	/* Parse DNS message */
@@ -751,7 +766,7 @@ dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp) {
 		d->type = DNS_DTTYPE_TR;
 		break;
 	default:
-		return (ISC_R_FAILURE);
+		return (DNS_R_BADDNSTAP);
 	}
 
 	/* Peer address */
@@ -873,7 +888,7 @@ dns_dt_datatotext(dns_dtdata_t *d, isc_buffer_t **dest) {
 		CHECK(putstr(dest, "TR "));
 		break;
 	default:
-		return (ISC_R_FAILURE);
+		return (DNS_R_BADDNSTAP);
 	}
 
 	/* Peer address */
