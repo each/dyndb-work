@@ -712,9 +712,11 @@ dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp) {
 	isc_buffer_add(&b, d->msgdata.length);
 	CHECK(dns_message_create(mctx, DNS_MESSAGE_INTENTPARSE, &d->msg));
 	result = dns_message_parse(d->msg, &b, 0);
-	if (result == DNS_R_RECOVERABLE)
+	if (result != ISC_R_SUCCESS) {
+		if (result != DNS_R_RECOVERABLE)
+			dns_message_destroy(&d->msg);
 		result = ISC_R_SUCCESS;
-	CHECK(result);
+	}
 
 	/* Timestamp */
 	if (d->query) {

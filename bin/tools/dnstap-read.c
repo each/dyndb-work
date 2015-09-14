@@ -205,8 +205,9 @@ print_yaml(dns_dtdata_t *d) {
 		}
 	}
 
-	printf("  %s: |\n", ((d->type & DNS_DTTYPE_QUERY) != 0)
-			     ? "query_message" : "response_message");
+	if (d->msg != NULL)
+		printf("  %s: |\n", ((d->type & DNS_DTTYPE_QUERY) != 0)
+				     ? "query_message" : "response_message");
 };
 
 int
