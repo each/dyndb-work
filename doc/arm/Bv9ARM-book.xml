@@ -5244,7 +5244,11 @@ badresp:1,adberr:0,findfail:0,valfail:0]
 		optionally be prefixed by the string "file:" or "socket:",
 		indicating that the path is a normal file or a
 		UNIX-domain socket.  If there is no prefix,
-		the path is a UNIX-domain socket.
+		the path is assumed to be a UNIX-domain socket.
+		(Note: when using a socket, the <command>dnstap</command>
+		frame stream will only be sent if another process
+		such as <command>fstrm_capture</command>
+		is listening on the socket.)
 	      </para>
 	      <para>
 		<command>dnstap-path</command> can only be set globally
