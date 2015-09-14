@@ -1004,12 +1004,12 @@ options_clauses[] = {
 	{ "datasize", &cfg_type_size, 0 },
 #ifdef DNSTAP
 	{ "dnstap-path", &cfg_type_qstring, 0 },
-	{ "dnstap-identity", &cfg_type_boolean, 0 },
-	{ "dnstap-version", &cfg_type_boolean, 0 },
+	{ "dnstap-identity", &cfg_type_qstring, 0 },
+	{ "dnstap-version", &cfg_type_qstring, 0 },
 #else
 	{ "dnstap-path", &cfg_type_qstring, CFG_CLAUSEFLAG_NOTCONFIGURED },
-	{ "dnstap-identity", &cfg_type_boolean, CFG_CLAUSEFLAG_NOTCONFIGURED },
-	{ "dnstap-version", &cfg_type_boolean, CFG_CLAUSEFLAG_NOTCONFIGURED },
+	{ "dnstap-identity", &cfg_type_qstring, CFG_CLAUSEFLAG_NOTCONFIGURED },
+	{ "dnstap-version", &cfg_type_qstring, CFG_CLAUSEFLAG_NOTCONFIGURED },
 #endif /* DNSTAP */
 	{ "session-keyfile", &cfg_type_qstringornone, 0 },
 	{ "session-keyname", &cfg_type_astring, 0 },

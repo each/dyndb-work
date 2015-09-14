@@ -116,11 +116,11 @@ print_yaml(dns_dtdata_t *d) {
 	printf("type: %s\n", ftype->name);
 
 	if (frame->has_identity)
-		printf("%.*s\n", (int) frame->identity.len,
+		printf("identity: %.*s\n", (int) frame->identity.len,
 		       frame->identity.data);
 
 	if (frame->has_version)
-		printf("%.*s\n", (int) frame->version.len,
+		printf("version: %.*s\n", (int) frame->version.len,
 		       frame->version.data);
 
 	if (frame->type != DNSTAP__DNSTAP__TYPE__MESSAGE)
