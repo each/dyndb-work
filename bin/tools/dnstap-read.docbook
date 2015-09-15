@@ -17,7 +17,7 @@
  - PERFORMANCE OF THIS SOFTWARE.
 -->
 
-<refentry id="man.named-journalprint">
+<refentry id="man.dnstap-read">
   <refentryinfo>
     <date>September 13, 2015</date>
   </refentryinfo>
@@ -75,7 +75,6 @@
         </listitem>
       </varlistentry>
 
-    <variablelist>
       <varlistentry>
         <term>-p</term>
         <listitem>
@@ -87,7 +86,6 @@
         </listitem>
       </varlistentry>
 
-    <variablelist>
       <varlistentry>
         <term>-y</term>
         <listitem>
