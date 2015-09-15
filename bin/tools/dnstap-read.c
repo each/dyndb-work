@@ -154,13 +154,13 @@ print_yaml(dns_dtdata_t *d) {
 
 	if (!isc_time_isepoch(&d->qtime)) {
 		char buf[100];
-		isc_time_formattimestamp(&d->qtime, buf, sizeof(buf));
+		isc_time_formatISO8601(&d->qtime, buf, sizeof(buf));
 		printf("  query_time: !!timestamp %s\n", buf);
 	}
 
 	if (!isc_time_isepoch(&d->rtime)) {
 		char buf[100];
-		isc_time_formattimestamp(&d->rtime, buf, sizeof(buf));
+		isc_time_formatISO8601(&d->rtime, buf, sizeof(buf));
 		printf("  response_time: !!timestamp %s\n", buf);
 	}
 
@@ -301,7 +301,11 @@ main(int argc, char *argv[]) {
 		if (b == NULL)
 			fatal("out of memory");
 
-		CHECKM(dns_dt_parse(mctx, &input, &dt), "dns_dt_parse");
+		result = dns_dt_parse(mctx, &input, &dt);
+		if (result != ISC_R_SUCCESS) {
+			fprintf(stderr, "%s: bad dnstap frame\n", program);
+			continue;
+		}
 
 		if (yaml)
 			print_yaml(dt);
@@ -324,7 +328,6 @@ main(int argc, char *argv[]) {
 						    &dns_master_style_debug,
 						    0, b);
 				if (result == ISC_R_NOSPACE) {
-					isc_buffer_free(&b);
 					textlen *= 2;
 					continue;
 				} else if (result == ISC_R_SUCCESS) {
