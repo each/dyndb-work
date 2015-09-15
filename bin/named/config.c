@@ -184,6 +184,11 @@ options {\n\
 	allow-new-zones no;\n\
 	fetches-per-server 0;\n\
 "
+#ifdef DNSTAP
+"\
+	dnstap-identity hostname;\n\
+"
+#endif
 #ifdef HAVE_GEOIP
 "\
 	geoip-use-ecs yes;\n\

@@ -2432,15 +2432,26 @@ configure_dnstap(const cfg_obj_t **maps, dns_view_t *view)
 
 	obj = NULL;
 	result = ns_config_get(maps, "dnstap-version", &obj);
-	if (result == ISC_R_SUCCESS)
-		dns_dt_setversion(ns_g_server->dtenv,
-				  cfg_obj_asstring(obj));
+	if (result != ISC_R_SUCCESS) {
+		/* not specified; use the product and version */
+		dns_dt_setversion(ns_g_server->dtenv, PRODUCT " " VERSION);
+	} else if (result == ISC_R_SUCCESS && !cfg_obj_isvoid(obj)) {
+		/* Quoted string */
+		dns_dt_setversion(ns_g_server->dtenv, cfg_obj_asstring(obj));
+	}
 
 	obj = NULL;
 	result = ns_config_get(maps, "dnstap-identity", &obj);
-	if (result == ISC_R_SUCCESS)
-		dns_dt_setidentity(ns_g_server->dtenv,
-				   cfg_obj_asstring(obj));
+	if (result == ISC_R_SUCCESS && cfg_obj_isboolean(obj)) {
+		/* "hostname" is interpreted as boolean ISC_TRUE */
+		char buf[256];
+		isc_result_t result = ns_os_gethostname(buf, sizeof(buf));
+		if (result == ISC_R_SUCCESS)
+			dns_dt_setidentity(ns_g_server->dtenv, buf);
+	} else if (result == ISC_R_SUCCESS && !cfg_obj_isvoid(obj)) {
+		/* Quoted string */
+		dns_dt_setidentity(ns_g_server->dtenv, cfg_obj_asstring(obj));
+	}
 
 	dns_dt_attach(ns_g_server->dtenv, &view->dtenv);
 	view->dttypes = dttypes;
