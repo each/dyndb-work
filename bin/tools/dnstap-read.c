@@ -44,6 +44,7 @@
 
 #include <dns/dnstap.h>
 #include <dns/fixedname.h>
+#include <dns/masterdump.h>
 #include <dns/message.h>
 #include <dns/name.h>
 #include <dns/result.h>
@@ -235,6 +236,7 @@ main(int argc, char *argv[]) {
 	dns_message_t *message = NULL;
 	isc_buffer_t *b = NULL;
 	dns_dtdata_t *dt = NULL;
+	const dns_master_style_t *style = &dns_master_style_debug;
 	int rv = 0, ch;
 
 	while ((ch = isc_commandline_parse(argc, argv, "mpy")) != -1) {
@@ -248,6 +250,8 @@ main(int argc, char *argv[]) {
 				break;
 			case 'y':
 				yaml = ISC_TRUE;
+				style = &dns_master_style_indent;
+				dns_master_indentstr = "    ";
 				printmessage = ISC_TRUE;
 				break;
 			default:
@@ -324,14 +328,13 @@ main(int argc, char *argv[]) {
 				isc_buffer_reserve(&b, textlen);
 				if (b == NULL)
 					fatal("out of memory");
-				result = dns_message_totext(dt->msg,
-						    &dns_master_style_debug,
-						    0, b);
+				result = dns_message_totext(dt->msg, style,
+							    0, b);
 				if (result == ISC_R_NOSPACE) {
 					textlen *= 2;
 					continue;
 				} else if (result == ISC_R_SUCCESS) {
-					printf("%.*s\n",
+					printf("%.*s",
 					       (int) isc_buffer_usedlength(b),
 					       (char *) isc_buffer_base(b));
 					isc_buffer_free(&b);

@@ -3159,6 +3159,7 @@ dns_message_sectiontotext(dns_message_t *msg, dns_section_t section,
 	dns_rdataset_t *rdataset;
 	isc_result_t result;
 	isc_boolean_t seensoa = ISC_FALSE;
+	unsigned int sflags = dns_master_styleflags(style);
 
 	REQUIRE(DNS_MESSAGE_VALID(msg));
 	REQUIRE(target != NULL);
@@ -3168,6 +3169,8 @@ dns_message_sectiontotext(dns_message_t *msg, dns_section_t section,
 		return (ISC_R_SUCCESS);
 
 	if ((flags & DNS_MESSAGETEXTFLAG_NOCOMMENTS) == 0) {
+		if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+			ADD_STRING(target, dns_master_indentstr);
 		ADD_STRING(target, ";; ");
 		if (msg->opcode != dns_opcode_update) {
 			ADD_STRING(target, sectiontext[section]);
@@ -3198,6 +3201,9 @@ dns_message_sectiontotext(dns_message_t *msg, dns_section_t section,
 				seensoa = ISC_TRUE;
 			}
 			if (section == DNS_SECTION_QUESTION) {
+				if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+					ADD_STRING(target,
+						   dns_master_indentstr);
 				ADD_STRING(target, ";");
 				result = dns_master_questiontotext(name,
 								   rdataset,
@@ -3215,8 +3221,11 @@ dns_message_sectiontotext(dns_message_t *msg, dns_section_t section,
 		result = dns_message_nextname(msg, section);
 	} while (result == ISC_R_SUCCESS);
 	if ((flags & DNS_MESSAGETEXTFLAG_NOHEADERS) == 0 &&
-	    (flags & DNS_MESSAGETEXTFLAG_NOCOMMENTS) == 0)
+	    (flags & DNS_MESSAGETEXTFLAG_NOCOMMENTS) == 0) {
+		if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+			ADD_STRING(target, dns_master_indentstr);
 		ADD_STRING(target, "\n");
+	}
 	if (result == ISC_R_NOMORE)
 		result = ISC_R_SUCCESS;
 	return (result);
@@ -3281,6 +3290,7 @@ dns_message_pseudosectiontotext(dns_message_t *msg,
 	isc_buffer_t optbuf;
 	isc_uint16_t optcode, optlen;
 	unsigned char *optdata;
+	unsigned int sflags = dns_master_styleflags(style);
 
 	REQUIRE(DNS_MESSAGE_VALID(msg));
 	REQUIRE(target != NULL);
@@ -3291,8 +3301,14 @@ dns_message_pseudosectiontotext(dns_message_t *msg,
 		ps = dns_message_getopt(msg);
 		if (ps == NULL)
 			return (ISC_R_SUCCESS);
-		if ((flags & DNS_MESSAGETEXTFLAG_NOCOMMENTS) == 0)
+		if ((flags & DNS_MESSAGETEXTFLAG_NOCOMMENTS) == 0) {
+			if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+				ADD_STRING(target, dns_master_indentstr);
 			ADD_STRING(target, ";; OPT PSEUDOSECTION:\n");
+		}
+
+		if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+			ADD_STRING(target, dns_master_indentstr);
 		ADD_STRING(target, "; EDNS: version: ");
 		snprintf(buf, sizeof(buf), "%u",
 			 (unsigned int)((ps->ttl & 0x00ff0000) >> 16));
@@ -3333,6 +3349,9 @@ dns_message_pseudosectiontotext(dns_message_t *msg,
 			optcode = isc_buffer_getuint16(&optbuf);
 			optlen = isc_buffer_getuint16(&optbuf);
 			INSIST(isc_buffer_remaininglength(&optbuf) >= optlen);
+
+			if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+				ADD_STRING(target, dns_master_indentstr);
 
 			if (optcode == DNS_OPT_NSID) {
 				ADD_STRING(target, "; NSID");
@@ -3424,6 +3443,8 @@ dns_message_pseudosectiontotext(dns_message_t *msg,
 		ps = dns_message_gettsig(msg, &name);
 		if (ps == NULL)
 			return (ISC_R_SUCCESS);
+		if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+			ADD_STRING(target, dns_master_indentstr);
 		if ((flags & DNS_MESSAGETEXTFLAG_NOCOMMENTS) == 0)
 			ADD_STRING(target, ";; TSIG PSEUDOSECTION:\n");
 		result = dns_master_rdatasettotext(name, ps, style, target);
@@ -3435,6 +3456,8 @@ dns_message_pseudosectiontotext(dns_message_t *msg,
 		ps = dns_message_getsig0(msg, &name);
 		if (ps == NULL)
 			return (ISC_R_SUCCESS);
+		if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+			ADD_STRING(target, dns_master_indentstr);
 		if ((flags & DNS_MESSAGETEXTFLAG_NOCOMMENTS) == 0)
 			ADD_STRING(target, ";; SIG0 PSEUDOSECTION:\n");
 		result = dns_master_rdatasettotext(name, ps, style, target);
@@ -3449,6 +3472,7 @@ dns_message_pseudosectiontotext(dns_message_t *msg,
 isc_result_t
 dns_message_totext(dns_message_t *msg, const dns_master_style_t *style,
 		   dns_messagetextflag_t flags, isc_buffer_t *target) {
+	unsigned int sflags = dns_master_styleflags(style);
 	char buf[sizeof("1234567890")];
 	isc_result_t result;
 
@@ -3456,6 +3480,8 @@ dns_message_totext(dns_message_t *msg, const dns_master_style_t *style,
 	REQUIRE(target != NULL);
 
 	if ((flags & DNS_MESSAGETEXTFLAG_NOHEADERS) == 0) {
+		if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+			ADD_STRING(target, dns_master_indentstr);
 		ADD_STRING(target, ";; ->>HEADER<<- opcode: ");
 		ADD_STRING(target, opcodetext[msg->opcode]);
 		ADD_STRING(target, ", status: ");
@@ -3468,7 +3494,10 @@ dns_message_totext(dns_message_t *msg, const dns_master_style_t *style,
 		ADD_STRING(target, ", id: ");
 		snprintf(buf, sizeof(buf), "%6u", msg->id);
 		ADD_STRING(target, buf);
-		ADD_STRING(target, "\n;; flags:");
+		ADD_STRING(target, "\n");
+		if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+			ADD_STRING(target, dns_master_indentstr);
+		ADD_STRING(target, ";; flags:");
 		if ((msg->flags & DNS_MESSAGEFLAG_QR) != 0)
 			ADD_STRING(target, " qr");
 		if ((msg->flags & DNS_MESSAGEFLAG_AA) != 0)
@@ -3486,11 +3515,18 @@ dns_message_totext(dns_message_t *msg, const dns_master_style_t *style,
 		/*
 		 * The final unnamed flag must be zero.
 		 */
-		if ((msg->flags & 0x0040U) != 0)
+		if ((msg->flags & 0x0040U) != 0) {
+			if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+				ADD_STRING(target, dns_master_indentstr);
 			ADD_STRING(target, "; MBZ: 0x4");
+		}
 		if (msg->opcode != dns_opcode_update) {
+			if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+				ADD_STRING(target, dns_master_indentstr);
 			ADD_STRING(target, "; QUESTION: ");
 		} else {
+			if ((sflags & DNS_STYLEFLAG_INDENT) != 0)
+				ADD_STRING(target, dns_master_indentstr);
 			ADD_STRING(target, "; ZONE: ");
 		}
 		snprintf(buf, sizeof(buf), "%1u",
