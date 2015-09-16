@@ -143,6 +143,7 @@ static cfg_type_t cfg_type_zoneopts;
 static cfg_type_t cfg_type_filter_aaaa;
 static cfg_type_t cfg_type_dlz;
 static cfg_type_t cfg_type_dnstap;
+static cfg_type_t cfg_type_dnstapoutput;
 
 /*% tkey-dhkey */
 
@@ -1003,11 +1004,12 @@ options_clauses[] = {
 	{ "coresize", &cfg_type_size, 0 },
 	{ "datasize", &cfg_type_size, 0 },
 #ifdef DNSTAP
-	{ "dnstap-path", &cfg_type_qstring, 0 },
+	{ "dnstap-output", &cfg_type_dnstapoutput, 0 },
 	{ "dnstap-identity", &cfg_type_serverid, 0 },
 	{ "dnstap-version", &cfg_type_qstringornone, 0 },
 #else
-	{ "dnstap-path", &cfg_type_qstring, CFG_CLAUSEFLAG_NOTCONFIGURED },
+	{ "dnstap-output", &cfg_type_dnstapoutput,
+		CFG_CLAUSEFLAG_NOTCONFIGURED },
 	{ "dnstap-identity", &cfg_type_serverid, CFG_CLAUSEFLAG_NOTCONFIGURED },
 	{ "dnstap-version", &cfg_type_qstringornone, CFG_CLAUSEFLAG_NOTCONFIGURED },
 #endif /* DNSTAP */
@@ -1209,6 +1211,26 @@ static cfg_type_t cfg_type_dnstap_entry = {
 static cfg_type_t cfg_type_dnstap = {
 	"dnstap", cfg_parse_bracketed_list, cfg_print_bracketed_list,
 	cfg_doc_bracketed_list, &cfg_rep_list, &cfg_type_dnstap_entry
+};
+
+/*%
+ * dnstap-output
+ */
+static const char *dtoutmode_enums[] = { "usocket", "file", NULL };
+static cfg_type_t cfg_type_dtmode = {
+	"dtmode", cfg_parse_enum, cfg_print_ustring, cfg_doc_enum,
+	&cfg_rep_string, &dtoutmode_enums
+};
+
+static cfg_tuplefielddef_t dtout_fields[] = {
+	{ "mode", &cfg_type_dtmode, 0 },
+	{ "path", &cfg_type_qstring, 0 },
+	{ NULL, NULL, 0 }
+};
+
+static cfg_type_t cfg_type_dnstapoutput = {
+	"dnstapoutput", cfg_parse_tuple, cfg_print_tuple, cfg_doc_tuple,
+	&cfg_rep_tuple, dtout_fields
 };
 
 /*%

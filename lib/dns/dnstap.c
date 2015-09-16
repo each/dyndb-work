@@ -144,7 +144,7 @@ unlock:
 }
 
 isc_result_t
-dns_dt_create(isc_mem_t *mctx, const char *path,
+dns_dt_create(isc_mem_t *mctx, dns_dtmode_t mode, const char *path,
 	      unsigned int workers, dns_dtenv_t **envp)
 {
 #ifdef DNSTAP
@@ -155,8 +155,6 @@ dns_dt_create(isc_mem_t *mctx, const char *path,
 	struct fstrm_file_options *ffwopt = NULL;
 	struct fstrm_writer_options *fwopt = NULL;
 	struct fstrm_writer *fw = NULL;
-	const char *filepfx = "file:", *sockpfx = "socket:";
-	size_t filelen = strlen(filepfx), socklen = strlen(sockpfx);
 	dns_dtenv_t *env = NULL;
 
 	REQUIRE(path != NULL);
@@ -174,10 +172,6 @@ dns_dt_create(isc_mem_t *mctx, const char *path,
 
 	CHECK(isc_refcount_init(&env->refcount, 1));
 
-	env->socket_path = isc_mem_strdup(mctx, path);
-	if (env->socket_path == NULL)
-		CHECK(ISC_R_NOMEMORY);
-
 	fwopt = fstrm_writer_options_init();
 	if (fwopt == NULL)
 		CHECK(ISC_R_NOMEMORY);
@@ -189,10 +183,7 @@ dns_dt_create(isc_mem_t *mctx, const char *path,
 		CHECK(ISC_R_FAILURE);
 
 
-	if (strlen(path) > filelen && strncmp(path, filepfx, filelen) == 0) {
-		/* file: prefix means write to a file */
-		path += filelen;
-
+	if (mode == dns_dtmode_file) {
 		ffwopt = fstrm_file_options_init();
 		if (ffwopt == NULL)
 			CHECK(ISC_R_FAILURE);
@@ -200,11 +191,6 @@ dns_dt_create(isc_mem_t *mctx, const char *path,
 		fstrm_file_options_set_file_path(ffwopt, path);
 		fw = fstrm_file_writer_init(ffwopt, fwopt);
 	} else {
-		/* Eat the optional socket: prefix, if present */
-		if (strlen(path) > socklen &&
-		    strncmp(path, sockpfx, socklen) == 0)
-			path += socklen;
-
 		fuwopt = fstrm_unix_writer_options_init();
 		if (fuwopt == NULL)
 			CHECK(ISC_R_FAILURE);
@@ -243,8 +229,6 @@ dns_dt_create(isc_mem_t *mctx, const char *path,
 		fstrm_writer_options_destroy(&fwopt);
 
 	if (result != ISC_R_SUCCESS) {
-		if (env->socket_path != NULL)
-			isc_mem_free(env->mctx, env->socket_path);
 		if (env->mctx != NULL)
 			isc_mem_detach(&env->mctx);
 		if (env != NULL)
@@ -367,8 +351,6 @@ destroy(dns_dtenv_t **envp) {
 		isc_mem_free(env->mctx, env->version.base);
 		env->version.length = 0;
 	}
-	if (env->socket_path != NULL)
-		isc_mem_free(env->mctx, env->socket_path);
 
 	isc_mem_putanddetach(&env->mctx, env, sizeof(*env));
 

@@ -2370,6 +2370,7 @@ configure_dnstap(const cfg_obj_t **maps, dns_view_t *view)
 	const char *dpath = ns_g_defaultdnstap;
 	const cfg_obj_t *dlist = NULL;
 	dns_dtmsgtype_t dttypes = 0;
+	dns_dtmode_t dmode;
 
 	result = ns_config_get(maps, "dnstap", &dlist);
 	if (result != ISC_R_SUCCESS)
@@ -2418,11 +2419,24 @@ configure_dnstap(const cfg_obj_t **maps, dns_view_t *view)
 
 	if (ns_g_server->dtenv == NULL && dttypes != 0) {
 		obj = NULL;
-		result = ns_config_get(maps, "dnstap-path", &obj);
-		if (result == ISC_R_SUCCESS)
-			dpath = cfg_obj_asstring(obj);
+		CHECKM(ns_config_get(maps, "dnstap-output", &obj),
+		       "'dnstap-output' must be set if 'dnstap' is set");
 
-		CHECKM(dns_dt_create(ns_g_mctx, dpath, ns_g_cpus,
+		obj2 = cfg_tuple_get(obj, "mode");
+		if (obj2 == NULL)
+			CHECKM(ISC_R_FAILURE, "dnstap-output mode not found");
+		if (strcasecmp(cfg_obj_asstring(obj2), "file") == 0)
+			dmode = dns_dtmode_file;
+		else
+			dmode = dns_dtmode_usocket;
+
+		obj2 = cfg_tuple_get(obj, "path");
+		if (obj2 == NULL)
+			CHECKM(ISC_R_FAILURE, "dnstap-output path not found");
+
+		dpath = cfg_obj_asstring(obj2);
+
+		CHECKM(dns_dt_create(ns_g_mctx, dmode, dpath, ns_g_cpus,
 				     &ns_g_server->dtenv),
 		       "unable to create dnstap environment");
 	}

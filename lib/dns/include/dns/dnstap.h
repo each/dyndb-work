@@ -86,7 +86,6 @@ struct dns_dtenv {
 	isc_refcount_t refcount;
 
 	isc_mem_t *mctx;
-	char *socket_path;
 
 	struct fstrm_iothr *iothr;
 
@@ -117,8 +116,13 @@ struct dns_dtdata {
 	char classbuf[DNS_RDATACLASS_FORMATSIZE];
 };
 
+typedef enum {
+	dns_dtmode_file,
+	dns_dtmode_usocket
+} dns_dtmode_t;
+
 isc_result_t
-dns_dt_create(isc_mem_t *mctx, const char *path,
+dns_dt_create(isc_mem_t *mctx, dns_dtmode_t mode, const char *path,
 	     unsigned int workers, dns_dtenv_t **envp);
 /*%<
  * Create and initialize the dnstap environment.
