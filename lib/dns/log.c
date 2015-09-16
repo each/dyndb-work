@@ -46,6 +46,7 @@ LIBDNS_EXTERNAL_DATA isc_logcategory_t dns_categories[] = {
 	{ "rate-limit",	0 },
 	{ "cname",	0 },
 	{ "spill",	0 },
+	{ "dnstap",	0 },
 	{ NULL, 	0 }
 };
 
@@ -85,6 +86,7 @@ LIBDNS_EXTERNAL_DATA isc_logmodule_t dns_modules[] = {
 	{ "dns/crypto",		0 },
 	{ "dns/packets",	0 },
 	{ "dns/nta",		0 },
+	{ "dns/dnstap",		0 },
 	{ NULL, 		0 }
 };
 
