@@ -51,6 +51,8 @@ struct dyndb_implementation {
 	void				*handle;
 	dns_dyndb_register_t		*register_func;
 	dns_dyndb_destroy_t		*destroy_func;
+	char				*name;
+	void				*inst;
 	LINK(dyndb_implementation_t)	link;
 };
 
@@ -70,6 +72,18 @@ static void
 dyndb_initialize(void) {
 	RUNTIME_CHECK(isc_mutex_init(&dyndb_lock) == ISC_R_SUCCESS);
 	INIT_LIST(dyndb_implementations);
+}
+
+static inline dyndb_implementation_t *
+impfind(const char *name) {
+	dyndb_implementation_t *imp;
+
+	for (imp = ISC_LIST_HEAD(dyndb_implementations);
+	     imp != NULL;
+	     imp = ISC_LIST_NEXT(imp, link))
+		if (strcasecmp(name, imp->name) == 0)
+			return (imp);
+	return (NULL);
 }
 
 #if HAVE_DLFCN_H
@@ -103,7 +117,7 @@ load_symbol(void *handle, const char *filename,
 }
 
 static isc_result_t
-load_library(isc_mem_t *mctx, const char *filename,
+load_library(isc_mem_t *mctx, const char *filename, const char *instname,
 	     dyndb_implementation_t **impp)
 {
 	isc_result_t result;
@@ -118,8 +132,8 @@ load_library(isc_mem_t *mctx, const char *filename,
 
 	isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
 		      DNS_LOGMODULE_DYNDB, ISC_LOG_INFO,
-		      "loading DynDB driver '%s'",
-		      filename);
+		      "loading DynDB instance '%s' driver '%s'",
+		      instname, filename);
 
 	flags = RTLD_NOW|RTLD_LOCAL;
 #ifdef RTLD_DEEPBIND
@@ -161,6 +175,13 @@ load_library(isc_mem_t *mctx, const char *filename,
 	imp->handle = handle;
 	imp->register_func = register_func;
 	imp->destroy_func = destroy_func;
+	imp->name = isc_mem_strdup(mctx, instname);
+	if (imp->name == NULL) {
+		result = ISC_R_NOMEMORY;
+		goto cleanup;
+	}
+
+	imp->inst = NULL;
 	INIT_LINK(imp, link);
 
 	*impp = imp;
@@ -169,8 +190,9 @@ cleanup:
 	if (result != ISC_R_SUCCESS)
 		isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
 			      DNS_LOGMODULE_DYNDB, ISC_LOG_ERROR,
-			      "failed to dynamically load driver '%s': %s",
-			      filename, dlerror());
+			      "failed to dynamically load instance '%s' "
+			      "driver '%s': %s (%s)", instname, filename,
+			      dlerror(), isc_result_totext(result));
 	if (result != ISC_R_SUCCESS && handle != NULL)
 		dlclose(handle);
 
@@ -185,6 +207,8 @@ unload_library(dyndb_implementation_t **impp) {
 
 	imp = *impp;
 
+	if (imp->name != NULL)
+		isc_mem_free(imp->mctx, imp->name);
 	isc_mem_putanddetach(&imp->mctx, imp, sizeof(dyndb_implementation_t));
 
 	*impp = NULL;
@@ -234,18 +258,25 @@ dns_dyndb_load(const char *libname, const char *name, const char *parameters,
 
 	RUNTIME_CHECK(isc_once_do(&once, dyndb_initialize) == ISC_R_SUCCESS);
 
-	CHECK(load_library(mctx, libname, &implementation));
-	CHECK(implementation->register_func(mctx, name, parameters, dctx));
+	CHECK(load_library(mctx, libname, name, &implementation));
+	CHECK(implementation->register_func(mctx, name, parameters, dctx,
+					    &implementation->inst));
 
 	LOCK(&dyndb_lock);
-	APPEND(dyndb_implementations, implementation, link);
+	/* duplicate instance names are not allowed */
+	if (impfind(name) == NULL) {
+		APPEND(dyndb_implementations, implementation, link);
+		result = ISC_R_SUCCESS;
+	} else {
+		result = ISC_R_EXISTS;
+	}
 	UNLOCK(&dyndb_lock);
 
-	return (ISC_R_SUCCESS);
 
 cleanup:
-	if (implementation != NULL)
-		unload_library(&implementation);
+	if (result != ISC_R_SUCCESS)
+		if (implementation != NULL)
+			unload_library(&implementation);
 
 	return (result);
 }
@@ -257,16 +288,15 @@ dns_dyndb_cleanup(isc_boolean_t exiting) {
 
 	RUNTIME_CHECK(isc_once_do(&once, dyndb_initialize) == ISC_R_SUCCESS);
 
-	isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
-		      DNS_LOGMODULE_DYNDB, ISC_LOG_INFO,
-		      "unloading all DynDB drivers");
-
 	LOCK(&dyndb_lock);
 	elem = TAIL(dyndb_implementations);
 	while (elem != NULL) {
 		prev = PREV(elem, link);
 		UNLINK(dyndb_implementations, elem, link);
-		elem->destroy_func();
+		isc_log_write(dns_lctx, DNS_LOGCATEGORY_DATABASE,
+			      DNS_LOGMODULE_DYNDB, ISC_LOG_INFO,
+			      "unloading DynDB instance '%s'", elem->name);
+		elem->destroy_func(&elem->inst);
 		unload_library(&elem);
 		elem = prev;
 	}

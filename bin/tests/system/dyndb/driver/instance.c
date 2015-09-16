@@ -10,8 +10,10 @@
 
 #include <config.h>
 
+#include <isc/task.h>
 #include <isc/util.h>
 
+#include <dns/db.h>
 #include <dns/dyndb.h>
 #include <dns/fixedname.h>
 #include <dns/name.h>
@@ -76,12 +78,11 @@ new_sample_instance(isc_mem_t *mctx, const char *db_name,
 	isc_result_t result;
 	sample_instance_t *inst = NULL;
 
-	log_info("creating sample dyndb instance '%s'", db_name);
-
 	REQUIRE(sample_instp != NULL && *sample_instp == NULL);
 
 	CHECKED_MEM_GET_PTR(mctx, inst);
 	ZERO_PTR(inst);
+	inst->db_name = db_name; /* const during lifetime of inst */
 	isc_mem_attach(mctx, &inst->mctx);
 
 	dns_fixedname_init(&inst->zone1_fn);
@@ -93,10 +94,12 @@ new_sample_instance(isc_mem_t *mctx, const char *db_name,
 	CHECK(parse_params(mctx, argc, argv,
 			   inst->zone1_name, inst->zone2_name));
 
-	inst->db_name = db_name;
-	inst->view = dctx->view;
-	inst->zmgr = dctx->zmgr;
-	inst->task = dctx->task;
+	dns_view_attach(dctx->view, &inst->view);
+	dns_zonemgr_attach(dctx->zmgr, &inst->zmgr);
+	isc_task_attach(dctx->task, &inst->task);
+
+	/* Register new DNS DB implementation. */
+	CHECK(dns_db_register(db_name, create_db, inst, mctx, &inst->db_imp));
 
 	*sample_instp = inst;
 	result = ISC_R_SUCCESS;
@@ -128,23 +131,24 @@ cleanup:
 void
 destroy_sample_instance(sample_instance_t **instp) {
 	sample_instance_t *inst;
-	const char *db_name;
 	REQUIRE(instp != NULL);
 
 	inst = *instp;
 	if (inst == NULL)
 		return;
 
-	db_name = inst->db_name; /* points to DB instance: outside inst */
-	log_info("destroying sample dyndb instance '%s'", db_name);
-
 	if (inst->zone1 != NULL)
 		dns_zone_detach(&inst->zone1);
 	if (inst->zone2 != NULL)
 		dns_zone_detach(&inst->zone2);
+	if (inst->db_imp != NULL)
+		dns_db_unregister(&inst->db_imp);
+
+	dns_view_detach(&inst->view);
+	dns_zonemgr_detach(&inst->zmgr);
+	isc_task_detach(&inst->task);
 
 	MEM_PUT_AND_DETACH(inst);
 
 	*instp = NULL;
-	log_info("sample dyndb instance '%s' destroyed", db_name);
 }
