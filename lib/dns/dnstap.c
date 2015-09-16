@@ -434,7 +434,7 @@ send_dt(dns_dtenv_t *env, void *buf, size_t len) {
 		return;
 	}
 
-	res = fstrm_iothr_submit(env->iothr, dt_queue(env), buf, len,
+	res = fstrm_iothr_submit(env->iothr, ioq, buf, len,
 				 fstrm_free_wrapper, NULL);
 	if (res != fstrm_res_success)
 		free(buf);
@@ -804,22 +804,13 @@ dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp) {
 	}
 
 	/* Peer address */
-	switch (d->type) {
-	case DNS_DTTYPE_CQ:
-	case DNS_DTTYPE_CR:
-	case DNS_DTTYPE_AQ:
-	case DNS_DTTYPE_AR:
-		if (m->has_query_address) {
-			d->qaddr.base = m->query_address.data;
-			d->qaddr.length = m->query_address.len;
-		}
-		break;
-	default:
-		if (m->has_response_address) {
-			d->raddr.base = m->response_address.data;
-			d->raddr.length = m->response_address.len;
-		}
-		break;
+	if (m->has_query_address) {
+		d->qaddr.base = m->query_address.data;
+		d->qaddr.length = m->query_address.len;
+	}
+	if (m->has_response_address) {
+		d->raddr.base = m->response_address.data;
+		d->raddr.length = m->response_address.len;
 	}
 
 	/* Socket protocol */
