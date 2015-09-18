@@ -489,8 +489,10 @@ destroy(dns_view_t *view) {
 		dns_zone_detach(&view->managed_keys);
 	if (view->redirect != NULL)
 		dns_zone_detach(&view->redirect);
+#ifdef DNSTAP
 	if (view->dtenv != NULL)
 		dns_dt_detach(&view->dtenv);
+#endif /* DNSTAP */
 	dns_view_setnewzones(view, ISC_FALSE, NULL, NULL);
 	dns_fwdtable_destroy(&view->fwdtable);
 	dns_aclenv_destroy(&view->aclenv);

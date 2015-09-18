@@ -24,7 +24,6 @@
 /*! \file
  * \brief
  * The dt (dnstap) module provides fast passive logging of DNS messages.
- * It uses a lightweight framing on top of event payloads encoded using
  * Protocol Buffers.  The protobuf schema for Dnstap messages is in the
  * file dnstap.proto, which is compiled to dnstap.pb-c.c and dnstap.pb-c.h.
  */
@@ -81,6 +80,12 @@
 	(DNS_DTTYPE_SR|DNS_DTTYPE_CR|DNS_DTTYPE_AR|\
 	 DNS_DTTYPE_RR|DNS_DTTYPE_FR|DNS_DTTYPE_TR)
 
+typedef enum {
+	dns_dtmode_file,
+	dns_dtmode_usocket
+} dns_dtmode_t;
+
+#ifdef DNSTAP
 struct dns_dtenv {
 	unsigned int magic;
 	isc_refcount_t refcount;
@@ -115,11 +120,7 @@ struct dns_dtdata {
 	char typebuf[DNS_RDATATYPE_FORMATSIZE];
 	char classbuf[DNS_RDATACLASS_FORMATSIZE];
 };
-
-typedef enum {
-	dns_dtmode_file,
-	dns_dtmode_usocket
-} dns_dtmode_t;
+#endif /* DNSTAP */
 
 isc_result_t
 dns_dt_create(isc_mem_t *mctx, dns_dtmode_t mode, const char *path,

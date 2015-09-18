@@ -185,18 +185,18 @@ dns_dt_create(isc_mem_t *mctx, dns_dtmode_t mode, const char *path,
 
 	if (mode == dns_dtmode_file) {
 		ffwopt = fstrm_file_options_init();
-		if (ffwopt == NULL)
-			CHECK(ISC_R_FAILURE);
-
-		fstrm_file_options_set_file_path(ffwopt, path);
-		fw = fstrm_file_writer_init(ffwopt, fwopt);
-	} else {
+		if (ffwopt != NULL) {
+			fstrm_file_options_set_file_path(ffwopt, path);
+			fw = fstrm_file_writer_init(ffwopt, fwopt);
+		}
+	} else if (mode == dns_dtmode_usocket) {
 		fuwopt = fstrm_unix_writer_options_init();
-		if (fuwopt == NULL)
-			CHECK(ISC_R_FAILURE);
-		fstrm_unix_writer_options_set_socket_path(fuwopt, path);
-		fw = fstrm_unix_writer_init(fuwopt, fwopt);
-	}
+		if (fuwopt != NULL) {
+			fstrm_unix_writer_options_set_socket_path(fuwopt, path);
+			fw = fstrm_unix_writer_init(fuwopt, fwopt);
+		}
+	} else
+		CHECK(ISC_R_FAILURE);
 
 	if (fw == NULL)
 		CHECK(ISC_R_FAILURE);

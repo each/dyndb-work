@@ -2362,8 +2362,7 @@ create_empty_zone(dns_zone_t *zone, dns_name_t *name, dns_view_t *view,
 
 #ifdef DNSTAP
 static isc_result_t
-configure_dnstap(const cfg_obj_t **maps, dns_view_t *view)
-{
+configure_dnstap(const cfg_obj_t **maps, dns_view_t *view) {
 	isc_result_t result;
 	const cfg_obj_t *obj, *obj2;
 	const cfg_listelt_t *element;
@@ -2459,7 +2458,7 @@ configure_dnstap(const cfg_obj_t **maps, dns_view_t *view)
 	if (result == ISC_R_SUCCESS && cfg_obj_isboolean(obj)) {
 		/* "hostname" is interpreted as boolean ISC_TRUE */
 		char buf[256];
-		isc_result_t result = ns_os_gethostname(buf, sizeof(buf));
+		result = ns_os_gethostname(buf, sizeof(buf));
 		if (result == ISC_R_SUCCESS)
 			dns_dt_setidentity(ns_g_server->dtenv, buf);
 	} else if (result == ISC_R_SUCCESS && !cfg_obj_isvoid(obj)) {
@@ -4024,11 +4023,13 @@ configure_view(dns_view_t *view, dns_viewlist_t *viewlist,
 	} else
 		view->redirectzone = NULL;
 
+#ifdef DNSTAP
 	/*
 	 * Set up the dnstap environment and configure message
 	 * types to log.
 	 */
 	CHECK(configure_dnstap(maps, view));
+#endif /* DNSTAP */
 
 	result = ISC_R_SUCCESS;
 
@@ -7242,8 +7243,10 @@ ns_server_destroy(ns_server_t **serverp) {
 	ns_server_t *server = *serverp;
 	REQUIRE(NS_SERVER_VALID(server));
 
+#ifdef DNSTAP
 	if (server->dtenv != NULL)
 		dns_dt_detach(&server->dtenv);
+#endif /* DNSTAP */
 
 	ns_controls_destroy(&server->controls);
 
