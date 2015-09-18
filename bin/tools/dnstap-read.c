@@ -86,38 +86,6 @@ usage(void) {
 	fprintf(stderr, "\t-y\tprint YAML format (implies -p)\n");
 }
 
-static isc_boolean_t
-dnstap_file(struct fstrm_reader *r) {
-	fstrm_res res;
-	const struct fstrm_control *control = NULL;
-	const char *dnstap_type = "protobuf:dnstap.Dnstap";
-	const uint8_t *rtype = NULL;
-	size_t dlen = strlen(dnstap_type), rlen = 0;
-	size_t n = 0;
-
-	res = fstrm_reader_get_control(r, FSTRM_CONTROL_START, &control);
-	if (res != fstrm_res_success)
-		return (ISC_FALSE);
-
-	res = fstrm_control_get_num_field_content_type(control, &n);
-	if (res != fstrm_res_success)
-		return (ISC_FALSE);
-	if (n > 0) {
-		res = fstrm_control_get_field_content_type(control, 0,
-							   &rtype, &rlen);
-		if (res != fstrm_res_success)
-			return (ISC_FALSE);
-
-		if (rlen != dlen)
-			return (ISC_FALSE);
-
-		if (memcmp(dnstap_type, rtype, dlen) == 0)
-			return (ISC_TRUE);
-	}
-
-	return (ISC_FALSE);
-}
-
 static void
 print_yaml(dns_dtdata_t *d) {
 	Dnstap__Dnstap *frame = d->frame;
@@ -230,13 +198,11 @@ print_yaml(dns_dtdata_t *d) {
 int
 main(int argc, char *argv[]) {
 	isc_result_t result;
-	struct fstrm_file_options *fopt;
-	struct fstrm_reader *reader = NULL;
-	fstrm_res res;
 	dns_message_t *message = NULL;
 	isc_buffer_t *b = NULL;
 	dns_dtdata_t *dt = NULL;
 	const dns_master_style_t *style = &dns_master_style_debug;
+	dns_dthandle_t handle = {dns_dtmode_none, NULL};
 	int rv = 0, ch;
 
 	while ((ch = isc_commandline_parse(argc, argv, "mpy")) != -1) {
@@ -266,35 +232,21 @@ main(int argc, char *argv[]) {
 	if (argc < 1)
 		fatal("no file specified");
 
-	fopt = fstrm_file_options_init();
-	if (fopt == NULL)
-		fatal("fstrm_file_options_init failed");
-	fstrm_file_options_set_file_path(fopt, argv[0]);
-
-	reader = fstrm_file_reader_init(fopt, NULL);
-	if (reader == NULL)
-		fatal("%s: fstrm_file_reader_init failed", argv[0]);
-	res = fstrm_reader_open(reader);
-	if (res != fstrm_res_success)
-		fatal("fstrm_reader_open failed");
-	fstrm_file_options_destroy(&fopt);
-
-	if (!dnstap_file(reader))
-		fatal("%s is not a dnstap file", argv[0]);
-
 	RUNTIME_CHECK(isc_mem_create(0, 0, &mctx) == ISC_R_SUCCESS);
+
+	CHECKM(dns_dt_open(argv[0], dns_dtmode_file, &handle),
+	       "dns_dt_openfile");
 
 	for (;;) {
 		isc_region_t input;
 		const uint8_t *data;
 		size_t datalen;
 
-		res = fstrm_reader_read(reader, &data, &datalen);
-		if (res != fstrm_res_success) {
-			if (res != fstrm_res_stop)
-				fatal("fstrm_reader_read() failed");
+		result = dns_dt_getframe(&handle, &data, &datalen);
+		if (result == ISC_R_NOMORE)
 			break;
-		}
+		else
+			CHECKM(result, "dns_dt_getframe");
 
 		DE_CONST(data, input.base);
 		input.length = datalen;
@@ -307,7 +259,7 @@ main(int argc, char *argv[]) {
 
 		result = dns_dt_parse(mctx, &input, &dt);
 		if (result != ISC_R_SUCCESS) {
-			fprintf(stderr, "%s: bad dnstap frame\n", program);
+			isc_buffer_free(&b);
 			continue;
 		}
 
@@ -355,8 +307,7 @@ main(int argc, char *argv[]) {
  cleanup:
 	if (dt != NULL)
 		dns_dtdata_free(&dt);
-	if (reader != NULL)
-		fstrm_reader_destroy(&reader);
+	dns_dt_close(&handle);
 	if (message != NULL)
 		dns_message_destroy(&message);
 	if (b != NULL)
