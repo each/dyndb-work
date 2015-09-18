@@ -666,6 +666,115 @@ putaddr(isc_buffer_t **b, isc_region_t *ip) {
 	return (putstr(b, buf));
 }
 
+static isc_boolean_t
+dnstap_file(struct fstrm_reader *r) {
+	fstrm_res res;
+	const struct fstrm_control *control = NULL;
+	const uint8_t *rtype = NULL;
+	size_t dlen = strlen(DNSTAP_CONTENT_TYPE), rlen = 0;
+	size_t n = 0;
+
+	res = fstrm_reader_get_control(r, FSTRM_CONTROL_START, &control);
+	if (res != fstrm_res_success)
+		return (ISC_FALSE);
+
+	res = fstrm_control_get_num_field_content_type(control, &n);
+	if (res != fstrm_res_success)
+		return (ISC_FALSE);
+	if (n > 0) {
+		res = fstrm_control_get_field_content_type(control, 0,
+							   &rtype, &rlen);
+		if (res != fstrm_res_success)
+			return (ISC_FALSE);
+
+		if (rlen != dlen)
+			return (ISC_FALSE);
+
+		if (memcmp(DNSTAP_CONTENT_TYPE, rtype, dlen) == 0)
+			return (ISC_TRUE);
+	}
+
+	return (ISC_FALSE);
+}
+
+isc_result_t
+dns_dt_open(const char *filename, dns_dtmode_t mode, dns_dthandle_t *handle) {
+	isc_result_t result;
+	struct fstrm_file_options *fopt;
+	fstrm_res res;
+
+	REQUIRE(handle != NULL);
+
+	handle->mode = mode;
+
+	switch(mode) {
+	case dns_dtmode_file:
+		fopt = fstrm_file_options_init();
+		if (fopt == NULL)
+			CHECK(ISC_R_NOMEMORY);
+
+		fstrm_file_options_set_file_path(fopt, filename);
+
+		handle->reader = fstrm_file_reader_init(fopt, NULL);
+		if (handle->reader == NULL)
+			CHECK(ISC_R_NOMEMORY);
+
+		res = fstrm_reader_open(handle->reader);
+		if (res != fstrm_res_success)
+			CHECK(ISC_R_FAILURE);
+
+		if (!dnstap_file(handle->reader))
+			CHECK(DNS_R_BADDNSTAP);
+		break;
+	case dns_dtmode_usocket:
+		return (ISC_R_NOTIMPLEMENTED);
+	default:
+		INSIST(0);
+	}
+
+	result = ISC_R_SUCCESS;
+
+ cleanup:
+	if (result != ISC_R_SUCCESS && handle->reader != NULL) {
+		fstrm_reader_destroy(&handle->reader);
+		handle->reader = NULL;
+	}
+	if (fopt != NULL)
+		fstrm_file_options_destroy(&fopt);
+	return (result);
+}
+
+isc_result_t
+dns_dt_getframe(dns_dthandle_t *handle, const unsigned char **bufp,
+		size_t *sizep)
+{
+	fstrm_res res;
+
+	REQUIRE(handle != NULL);
+	REQUIRE(bufp != NULL);
+	REQUIRE(sizep != NULL);
+
+	res = fstrm_reader_read(handle->reader, bufp, sizep);
+	switch (res) {
+	case fstrm_res_success:
+		return (ISC_R_SUCCESS);
+	case fstrm_res_stop:
+		return (ISC_R_NOMORE);
+	default:
+		return (ISC_R_FAILURE);
+	}
+}
+
+void
+dns_dt_close(dns_dthandle_t *handle) {
+	REQUIRE(handle != NULL);
+
+	if (handle->reader != NULL) {
+		fstrm_reader_destroy(&handle->reader);
+		handle->reader = NULL;
+	}
+}
+
 isc_result_t
 dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp) {
 	isc_result_t result;

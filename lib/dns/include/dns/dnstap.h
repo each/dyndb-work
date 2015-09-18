@@ -81,9 +81,15 @@
 	 DNS_DTTYPE_RR|DNS_DTTYPE_FR|DNS_DTTYPE_TR)
 
 typedef enum {
+	dns_dtmode_none = 0,
 	dns_dtmode_file,
 	dns_dtmode_usocket
 } dns_dtmode_t;
+
+typedef struct dns_dthandle {
+	dns_dtmode_t mode;
+	struct fstrm_reader *reader;
+} dns_dthandle_t;
 
 #ifdef DNSTAP
 struct dns_dtenv {
@@ -277,4 +283,61 @@ dns_dtdata_free(dns_dtdata_t **dp);
  * Frees the specified dns_dtdata structure and all its members,
  * and sets *dp to NULL.
  */
+
+isc_result_t
+dns_dt_open(const char *filename, dns_dtmode_t mode, dns_dthandle_t *handle);
+/*%<
+ * Opens a dnstap framestream at 'filename' and stores a pointer to the
+ * reader object in a dns_dthandle_t structure.
+ *
+ * The caller is responsible for allocating the handle structure.
+ *
+ * (XXX: Currently only file readers are supported, not unix-domain socket
+ * readers.)
+ *
+ * Requires:
+ *
+ *\li	'handle' is not NULL
+ *
+ * Returns:
+ *
+ *\li	#ISC_R_SUCCESS on success
+ *\li	#ISC_R_NOTIMPLEMENTED if 'mode' is not dns_dtmode_file. (XXX)
+ *\li	#ISC_R_NOMEMORY if the fstrm library was unable to allocate a
+ *      reader or options structure
+ *\li	#ISC_R_FAILURE if 'filename' could not be opened.
+ *\li	#ISC_R_BADDNSTAP if 'filename' does not contain a dnstap
+ *      framestream.
+ */
+
+isc_result_t
+dns_dt_getframe(dns_dthandle_t *handle, const unsigned char **bufp,
+		size_t *sizep);
+/*%<
+ * Read a dnstap frame from the framstream reader in 'handle', storing
+ * a pointer to it in '*bufp' and its size in '*sizep'.
+ *
+ * Requires:
+ *
+ *\li	'handle' is not NULL
+ *\li	'bufp' is not NULL
+ *\li	'sizep' is not NULL
+ *
+ * Returns:
+ *
+ *\li	#ISC_R_SUCCESS on success
+ *\li	#ISC_R_NOMORE at the end of the frame stream
+ *\li	#ISC_R_FAILURE for any other failure
+ */
+
+void
+dns_dt_close(dns_dthandle_t *handle);
+/*%<
+ * Closes the dnstap file referenced by 'handle'.
+ *
+ * Requires:
+ *
+ *\li	'handle' is not NULL
+ */
+
 #endif /* _DNSTAP_H */
