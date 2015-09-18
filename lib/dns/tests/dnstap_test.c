@@ -22,7 +22,9 @@
 
 #include <unistd.h>
 
+#include <isc/buffer.h>
 #include <isc/file.h>
+#include <isc/stdio.h>
 #include <isc/print.h>
 #include <isc/types.h>
 
@@ -37,6 +39,9 @@
 
 #define TAPFILE "testdata/dnstap/dnstap.file"
 #define TAPSOCK "testdata/dnstap/dnstap.sock"
+
+#define TAPSAVED "testdata/dnstap/dnstap.saved"
+#define TAPTEXT "testdata/dnstap/dnstap.text"
 
 /*
  * Helper functions
@@ -98,6 +103,9 @@ ATF_TC_HEAD(send, tc) {
 ATF_TC_BODY(send, tc) {
 	isc_result_t result;
 	dns_dtenv_t *dtenv = NULL;
+	dns_dthandle_t handle;
+	const unsigned char *data;
+	size_t dsize;
 	unsigned char zone[DNS_NAME_MAXWIRE];
 	unsigned char qambuffer[4096], rambuffer[4096];
 	unsigned char qrmbuffer[4096], rrmbuffer[4096];
@@ -215,7 +223,102 @@ ATF_TC_BODY(send, tc) {
 	 * XXX now read back and check content.
 	 */
 
-	// cleanup();
+	result = dns_dt_open(TAPFILE, dns_dtmode_file, &handle);
+	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
+
+	while (dns_dt_getframe(&handle, &data, &dsize) == ISC_R_SUCCESS) {
+		dns_dtdata_t *dtdata = NULL;
+		isc_region_t r;
+		static dns_dtmsgtype_t expected = DNS_DTTYPE_SQ;
+		static int n = 0;
+
+		DE_CONST(data, r.base);
+		r.length = dsize;
+
+		result = dns_dt_parse(mctx, &r, &dtdata);
+		ATF_CHECK_EQ(result, ISC_R_SUCCESS);
+		if (result != ISC_R_SUCCESS) {
+			n++;
+			continue;
+		}
+
+		ATF_CHECK_EQ(dtdata->type, expected);
+		if (++n % 8 == 0)
+			expected <<= 1;
+
+		dns_dtdata_free(&dtdata);
+	}
+
+	dns_dt_close(&handle);
+	cleanup();
+
+	dns_test_end();
+}
+
+ATF_TC(totext);
+ATF_TC_HEAD(totext, tc) {
+	atf_tc_set_md_var(tc, "descr", "dnstap message to text");
+}
+ATF_TC_BODY(totext, tc) {
+	isc_result_t result;
+	dns_dthandle_t handle;
+	const unsigned char *data;
+	size_t dsize;
+	FILE *fp = NULL;
+
+	UNUSED(tc);
+
+	result = dns_test_begin(NULL, ISC_TRUE);
+	ATF_REQUIRE(result == ISC_R_SUCCESS);
+
+	result = dns_dt_open(TAPSAVED, dns_dtmode_file, &handle);
+	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
+
+	result = isc_stdio_open(TAPTEXT, "r", &fp);
+	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
+
+	while (dns_dt_getframe(&handle, &data, &dsize) == ISC_R_SUCCESS) {
+		dns_dtdata_t *dtdata = NULL;
+		isc_buffer_t *b = NULL;
+		isc_region_t r;
+		char s[BUFSIZ], *p;
+
+		DE_CONST(data, r.base);
+		r.length = dsize;
+
+		/* read the corresponding line of text */
+		p = fgets(s, sizeof(s), fp);
+		ATF_CHECK_EQ(p, s);
+		if (p == NULL)
+			break;
+
+		p = strchr(p, '\n');
+		if (p != NULL)
+			*p = '\0';
+
+		/* parse dnstap frame */
+		result = dns_dt_parse(mctx, &r, &dtdata);
+		ATF_CHECK_EQ(result, ISC_R_SUCCESS);
+		if (result != ISC_R_SUCCESS)
+			continue;
+
+		isc_buffer_allocate(mctx, &b, 2048);
+		ATF_CHECK(b != NULL);
+		if (b == NULL)
+			break;
+
+		/* convert to text and compare */
+		result = dns_dt_datatotext(dtdata, &b);
+		ATF_CHECK_EQ(result, ISC_R_SUCCESS);
+
+		ATF_CHECK_STREQ((char *) isc_buffer_base(b), s);
+
+		dns_dtdata_free(&dtdata);
+		isc_buffer_free(&b);
+	}
+
+	dns_dt_close(&handle);
+	cleanup();
 
 	dns_test_end();
 }
@@ -238,7 +341,7 @@ ATF_TP_ADD_TCS(tp) {
 #ifdef DNSTAP
 	ATF_TP_ADD_TC(tp, create);
 	ATF_TP_ADD_TC(tp, send);
-	//ATF_TP_ADD_TC(tp, totext);
+	ATF_TP_ADD_TC(tp, totext);
 #else
 	ATF_TP_ADD_TC(tp, untested);
 #endif
