@@ -21,6 +21,7 @@
 #include <atf-c.h>
 
 #include <unistd.h>
+#include <stdlib.h>
 
 #include <isc/buffer.h>
 #include <isc/file.h>
@@ -276,6 +277,9 @@ ATF_TC_BODY(totext, tc) {
 
 	result = isc_stdio_open(TAPTEXT, "r", &fp);
 	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
+
+	/* make sure text conversion gets the right local time */
+	setenv("TZ", "MST", 1);
 
 	while (dns_dt_getframe(&handle, &data, &dsize) == ISC_R_SUCCESS) {
 		dns_dtdata_t *dtdata = NULL;
