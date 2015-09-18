@@ -279,7 +279,7 @@ ATF_TC_BODY(totext, tc) {
 	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
 
 	/* make sure text conversion gets the right local time */
-	setenv("TZ", "MST", 1);
+	setenv("TZ", "MST7", 1);
 
 	while (dns_dt_getframe(&handle, &data, &dsize) == ISC_R_SUCCESS) {
 		dns_dtdata_t *dtdata = NULL;
