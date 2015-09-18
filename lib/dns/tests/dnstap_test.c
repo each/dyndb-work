@@ -35,13 +35,16 @@
 #include <dns/dnstap.pb-c.h>
 #include <protobuf-c/protobuf-c.h>
 
+#define TAPFILE "testdata/dnstap/dnstap.file"
+#define TAPSOCK "testdata/dnstap/dnstap.sock"
+
 /*
  * Helper functions
  */
 static void
 cleanup() {
-	(void) isc_file_remove("dnstap.file");
-	(void) isc_file_remove("dnstap.sock");
+	(void) isc_file_remove(TAPFILE);
+	(void) isc_file_remove(TAPSOCK);
 }
 
 /*
@@ -63,24 +66,24 @@ ATF_TC_BODY(create, tc) {
 	result = dns_test_begin(NULL, ISC_TRUE);
 	ATF_REQUIRE(result == ISC_R_SUCCESS);
 
-	result = dns_dt_create(mctx, dns_dtmode_file,
-			       "dnstap.file", 1, &dtenv);
-	ATF_CHECK(result == ISC_R_SUCCESS);
+	result = dns_dt_create(mctx, dns_dtmode_file, TAPFILE, 1, &dtenv);
+	ATF_CHECK_EQ(result, ISC_R_SUCCESS);
+	if (dtenv != NULL)
+		dns_dt_detach(&dtenv);
 
-	dns_dt_detach(&dtenv);
+	ATF_CHECK(isc_file_exists(TAPFILE));
 
-	ATF_CHECK(isc_file_exists("dnstap.file"));
+	result = dns_dt_create(mctx, dns_dtmode_usocket, TAPSOCK, 1, &dtenv);
+	ATF_CHECK_EQ(result, ISC_R_SUCCESS);
+	if (dtenv != NULL)
+		dns_dt_detach(&dtenv);
 
-	result = dns_dt_create(mctx, dns_dtmode_usocket,
-			       "dnstap.sock", 1, &dtenv);
-	ATF_REQUIRE(result == ISC_R_SUCCESS);
-	dns_dt_detach(&dtenv);
+	/* 'create' should succeed, but the file shouldn't exist yet */
+	ATF_CHECK(!isc_file_exists(TAPSOCK));
 
-	/* shouldn't be created, just opened if it already exists */
-	ATF_CHECK(!isc_file_exists("dnstap.sock"));
-
-	(void) isc_file_remove("dnstap.file");
-	(void) isc_file_remove("dnstap.sock");
+	result = dns_dt_create(mctx, 33, TAPSOCK, 1, &dtenv);
+	ATF_CHECK_EQ(result, ISC_R_FAILURE);
+	ATF_CHECK_EQ(dtenv, NULL);
 
 	cleanup();
 
@@ -96,9 +99,10 @@ ATF_TC_BODY(send, tc) {
 	isc_result_t result;
 	dns_dtenv_t *dtenv = NULL;
 	unsigned char zone[DNS_NAME_MAXWIRE];
-	unsigned char qmbuffer[4096], rmbuffer[4096];
-	isc_buffer_t zb, qmsg, rmsg;
-	size_t qsize, rsize;
+	unsigned char qambuffer[4096], rambuffer[4096];
+	unsigned char qrmbuffer[4096], rrmbuffer[4096];
+	isc_buffer_t zb, qamsg, ramsg, qrmsg, rrmsg;
+	size_t qasize, qrsize, rasize, rrsize;
 	dns_fixedname_t zfname;
 	dns_name_t *zname;
 	dns_dtmsgtype_t dt;
@@ -119,9 +123,11 @@ ATF_TC_BODY(send, tc) {
 
 	result = dns_test_makeview("test", &view);
 
-	result = dns_dt_create(mctx, dns_dtmode_file,
-			       "dnstap.file", 1, &dtenv);
+	result = dns_dt_create(mctx, dns_dtmode_file, TAPFILE, 1, &dtenv);
 	ATF_REQUIRE(result == ISC_R_SUCCESS);
+
+	dns_dt_attach(dtenv, &view->dtenv);
+	view->dttypes = DNS_DTTYPE_ALL;
 
 	/*
 	 * Set up some test data
@@ -139,6 +145,7 @@ ATF_TC_BODY(send, tc) {
 	dns_compress_setmethods(&cctx, DNS_COMPRESS_NONE);
 	result = dns_name_towire(zname, &cctx, &zb);
 	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
+	dns_compress_invalidate(&cctx);
 	isc_buffer_usedregion(&zb, &zr);
 
 	in.s_addr = inet_addr("10.53.0.1");
@@ -148,22 +155,46 @@ ATF_TC_BODY(send, tc) {
 	isc_time_set(&p, now - 3600, 0); /* past */
 	isc_time_set(&f, now + 3600, 0); /* future */
 
-	result = dns_test_getdata("testdata/dnstap/query", qmbuffer,
-				  sizeof(qmbuffer), &qsize);
+	result = dns_test_getdata("testdata/dnstap/query.auth",
+				  qambuffer, sizeof(qambuffer), &qasize);
 	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
-	isc_buffer_init(&qmsg, qmbuffer, qsize);
-	isc_buffer_add(&qmsg, qsize);
+	isc_buffer_init(&qamsg, qambuffer, qasize);
+	isc_buffer_add(&qamsg, qasize);
 
-	result = dns_test_getdata("testdata/dnstap/response", rmbuffer,
-				  sizeof(rmbuffer), &rsize);
+	result = dns_test_getdata("testdata/dnstap/response.auth",
+				  rambuffer, sizeof(rambuffer), &rasize);
 	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
-	isc_buffer_init(&rmsg, rmbuffer, rsize);
-	isc_buffer_add(&rmsg, rsize);
+	isc_buffer_init(&ramsg, rambuffer, rasize);
+	isc_buffer_add(&ramsg, rasize);
 
-	for (dt = DNS_DTTYPE_SQ; dt <= DNS_DTTYPE_TR; dt++) {
-		isc_buffer_t *m = &qmsg;
-		if ((dt & DNS_DTTYPE_RESPONSE) != 0)
-			m = &rmsg;
+	result = dns_test_getdata("testdata/dnstap/query.recursive", qrmbuffer,
+				  sizeof(qrmbuffer), &qrsize);
+	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
+	isc_buffer_init(&qrmsg, qrmbuffer, qrsize);
+	isc_buffer_add(&qrmsg, qrsize);
+
+	result = dns_test_getdata("testdata/dnstap/response.recursive",
+				  rrmbuffer, sizeof(rrmbuffer), &rrsize);
+	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
+	isc_buffer_init(&rrmsg, rrmbuffer, rrsize);
+	isc_buffer_add(&rrmsg, rrsize);
+
+	for (dt = DNS_DTTYPE_SQ; dt <= DNS_DTTYPE_TR; dt <<= 1) {
+		isc_buffer_t *m;
+
+		switch (dt) {
+		case DNS_DTTYPE_AQ:
+			m = &qamsg;
+			break;
+		case DNS_DTTYPE_AR:
+			m = &ramsg;
+			break;
+		default:
+			m = &qrmsg;
+			if ((dt & DNS_DTTYPE_RESPONSE) != 0)
+				m = &ramsg;
+			break;
+		}
 
 		dns_dt_send(view, dt, &addr, ISC_FALSE, &zr, &p, &f, m);
 		dns_dt_send(view, dt, &addr, ISC_FALSE, &zr, NULL, &f, m);
@@ -178,12 +209,13 @@ ATF_TC_BODY(send, tc) {
 	dns_dt_detach(&view->dtenv);
 	dns_dt_detach(&dtenv);
 	dns_dt_shutdown();
+	dns_view_detach(&view);
 
 	/*
 	 * XXX now read back and check content.
 	 */
 
-	cleanup();
+	// cleanup();
 
 	dns_test_end();
 }

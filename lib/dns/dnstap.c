@@ -540,6 +540,7 @@ dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
 
 	init_msg(view->dtenv, &dm, dnstap_type(msgtype));
 
+	/* Query/response times */
 	switch (msgtype) {
 	case DNS_DTTYPE_AR:
 	case DNS_DTTYPE_CR:
@@ -585,19 +586,9 @@ dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
 		return;
 	}
 
+	/* Zone/bailiwick */
 	switch (msgtype) {
-	case DNS_DTTYPE_AQ:
 	case DNS_DTTYPE_AR:
-	case DNS_DTTYPE_CQ:
-	case DNS_DTTYPE_CR:
-	case DNS_DTTYPE_SR:
-	case DNS_DTTYPE_SQ:
-	case DNS_DTTYPE_TR:
-	case DNS_DTTYPE_TQ:
-		setaddr(&dm, sa, tcp,
-			&dm.m.query_address, &dm.m.has_query_address,
-			&dm.m.query_port, &dm.m.has_query_port);
-		break;
 	case DNS_DTTYPE_RQ:
 	case DNS_DTTYPE_RR:
 	case DNS_DTTYPE_FQ:
@@ -607,14 +598,24 @@ dns_dt_send(dns_view_t *view, dns_dtmsgtype_t msgtype,
 			dm.m.query_zone.len = zone->length;
 			dm.m.has_query_zone = 1;
 		}
+		break;
+	default:
+		break;
+	}
 
+	switch (msgtype) {
+	case DNS_DTTYPE_RQ:
+	case DNS_DTTYPE_RR:
+	case DNS_DTTYPE_FQ:
+	case DNS_DTTYPE_FR:
 		setaddr(&dm, sa, tcp,
 			&dm.m.response_address, &dm.m.has_response_address,
 			&dm.m.response_port, &dm.m.has_response_port);
 		break;
 	default:
-		/* If this were true we would already have returned */
-		INSIST(0);
+		setaddr(&dm, sa, tcp,
+			&dm.m.query_address, &dm.m.has_query_address,
+			&dm.m.query_port, &dm.m.has_query_port);
 	}
 
 	if (pack_dt(&dm.d, &dm.buf, &dm.len) == ISC_R_SUCCESS)
@@ -801,58 +802,7 @@ dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp) {
 
 	m = d->frame->message;
 
-	switch (m->type) {
-	case DNSTAP__MESSAGE__TYPE__AUTH_QUERY:
-	case DNSTAP__MESSAGE__TYPE__RESOLVER_QUERY:
-	case DNSTAP__MESSAGE__TYPE__CLIENT_QUERY:
-	case DNSTAP__MESSAGE__TYPE__FORWARDER_QUERY:
-	case DNSTAP__MESSAGE__TYPE__STUB_QUERY:
-	case DNSTAP__MESSAGE__TYPE__TOOL_QUERY:
-		d->query = ISC_TRUE;
-		break;
-	case DNSTAP__MESSAGE__TYPE__AUTH_RESPONSE:
-	case DNSTAP__MESSAGE__TYPE__RESOLVER_RESPONSE:
-	case DNSTAP__MESSAGE__TYPE__CLIENT_RESPONSE:
-	case DNSTAP__MESSAGE__TYPE__FORWARDER_RESPONSE:
-	case DNSTAP__MESSAGE__TYPE__STUB_RESPONSE:
-	case DNSTAP__MESSAGE__TYPE__TOOL_RESPONSE:
-		d->query = ISC_FALSE;
-		break;
-	default:
-		CHECK(DNS_R_BADDNSTAP);
-	}
-
-	/* Parse DNS message */
-	if (d->query && m->has_query_message) {
-		d->msgdata.base = m->query_message.data;
-		d->msgdata.length = m->query_message.len;
-	} else if (!d->query && m->has_response_message) {
-		d->msgdata.base = m->response_message.data;
-		d->msgdata.length = m->response_message.len;
-	}
-
-	isc_buffer_init(&b, d->msgdata.base, d->msgdata.length);
-	isc_buffer_add(&b, d->msgdata.length);
-	CHECK(dns_message_create(mctx, DNS_MESSAGE_INTENTPARSE, &d->msg));
-	result = dns_message_parse(d->msg, &b, 0);
-	if (result != ISC_R_SUCCESS) {
-		if (result != DNS_R_RECOVERABLE)
-			dns_message_destroy(&d->msg);
-		result = ISC_R_SUCCESS;
-	}
-
-	/* Timestamp */
-	if (d->query) {
-		if (m->has_query_time_sec && m->has_query_time_nsec)
-			isc_time_set(&d->qtime, m->query_time_sec,
-				     m->query_time_nsec);
-	} else {
-		if (m->has_response_time_sec && m->has_response_time_nsec)
-			isc_time_set(&d->rtime, m->response_time_sec,
-				     m->response_time_nsec);
-	}
-
-	/* Type mnemonic */
+	/* Message type */
 	switch (m->type) {
 	case DNSTAP__MESSAGE__TYPE__AUTH_QUERY:
 		d->type = DNS_DTTYPE_AQ;
@@ -891,7 +841,43 @@ dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp) {
 		d->type = DNS_DTTYPE_TR;
 		break;
 	default:
-		return (DNS_R_BADDNSTAP);
+		CHECK(DNS_R_BADDNSTAP);
+	}
+
+	/* Query? */
+	if ((d->type & DNS_DTTYPE_QUERY) != 0) 
+		d->query = ISC_TRUE;
+	else
+		d->query = ISC_FALSE;
+
+	/* Parse DNS message */
+	if (d->query && m->has_query_message) {
+		d->msgdata.base = m->query_message.data;
+		d->msgdata.length = m->query_message.len;
+	} else if (!d->query && m->has_response_message) {
+		d->msgdata.base = m->response_message.data;
+		d->msgdata.length = m->response_message.len;
+	}
+
+	isc_buffer_init(&b, d->msgdata.base, d->msgdata.length);
+	isc_buffer_add(&b, d->msgdata.length);
+	CHECK(dns_message_create(mctx, DNS_MESSAGE_INTENTPARSE, &d->msg));
+	result = dns_message_parse(d->msg, &b, 0);
+	if (result != ISC_R_SUCCESS) {
+		if (result != DNS_R_RECOVERABLE)
+			dns_message_destroy(&d->msg);
+		result = ISC_R_SUCCESS;
+	}
+
+	/* Timestamp */
+	if (d->query) {
+		if (m->has_query_time_sec && m->has_query_time_nsec)
+			isc_time_set(&d->qtime, m->query_time_sec,
+				     m->query_time_nsec);
+	} else {
+		if (m->has_response_time_sec && m->has_response_time_nsec)
+			isc_time_set(&d->rtime, m->response_time_sec,
+				     m->response_time_nsec);
 	}
 
 	/* Peer address */
@@ -899,6 +885,7 @@ dns_dt_parse(isc_mem_t *mctx, isc_region_t *src, dns_dtdata_t **destp) {
 		d->qaddr.base = m->query_address.data;
 		d->qaddr.length = m->query_address.len;
 	}
+
 	if (m->has_response_address) {
 		d->raddr.base = m->response_address.data;
 		d->raddr.length = m->response_address.len;
@@ -1009,16 +996,23 @@ dns_dt_datatotext(dns_dtdata_t *d, isc_buffer_t **dest) {
 
 	/* Peer address */
 	switch (d->type) {
-	case DNS_DTTYPE_AQ:
-	case DNS_DTTYPE_AR:
-	case DNS_DTTYPE_CQ:
-	case DNS_DTTYPE_CR:
-		CHECK(putaddr(dest, &d->qaddr));
+	case DNS_DTTYPE_RQ:
+	case DNS_DTTYPE_RR:
+	case DNS_DTTYPE_FQ:
+	case DNS_DTTYPE_FR:
+		if (d->raddr.length != 0)
+			CHECK(putaddr(dest, &d->raddr));
+		else
+			CHECK(putstr(dest, "?"));
 		break;
 	default:
-		CHECK(putaddr(dest, &d->raddr));
+		if (d->qaddr.length != 0)
+			CHECK(putaddr(dest, &d->qaddr));
+		else
+			CHECK(putstr(dest, "?"));
 		break;
 	}
+
 	CHECK(putstr(dest, " "));
 
 	/* Protocol */

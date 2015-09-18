@@ -259,7 +259,7 @@ main(int argc, char *argv[]) {
 
 		result = dns_dt_parse(mctx, &input, &dt);
 		if (result != ISC_R_SUCCESS) {
-			fprintf(stderr, "%s: bad dnstap frame\n", program);
+			isc_buffer_free(&b);
 			continue;
 		}
 

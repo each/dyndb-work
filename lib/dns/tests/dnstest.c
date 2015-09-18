@@ -390,7 +390,7 @@ dns_test_getdata(const char *file, unsigned char *buf,
 			rp++;
 		}
 		if (len == 0U)
-			break;
+			continue;
 		if (len % 2 != 0U)
 			return (ISC_R_UNEXPECTEDEND);
 		if (len > bufsiz * 2)

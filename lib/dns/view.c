@@ -241,6 +241,7 @@ dns_view_create(isc_mem_t *mctx, dns_rdataclass_t rdclass,
 	view->failcache = NULL;
 	dns_badcache_init(view->mctx, DNS_VIEW_FAILCACHESIZE, &view->failcache);
 	view->dtenv = NULL;
+	view->dttypes = 0;
 
 	if (isc_bind9) {
 		result = dns_order_create(view->mctx, &view->order);
