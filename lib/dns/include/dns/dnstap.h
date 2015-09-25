@@ -85,7 +85,7 @@
 typedef enum {
 	dns_dtmode_none = 0,
 	dns_dtmode_file,
-	dns_dtmode_usocket
+	dns_dtmode_unix
 } dns_dtmode_t;
 
 typedef struct dns_dthandle {

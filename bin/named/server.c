@@ -2427,7 +2427,7 @@ configure_dnstap(const cfg_obj_t **maps, dns_view_t *view) {
 		if (strcasecmp(cfg_obj_asstring(obj2), "file") == 0)
 			dmode = dns_dtmode_file;
 		else
-			dmode = dns_dtmode_usocket;
+			dmode = dns_dtmode_unix;
 
 		obj2 = cfg_tuple_get(obj, "path");
 		if (obj2 == NULL)
