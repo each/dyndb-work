@@ -79,7 +79,7 @@ ATF_TC_BODY(create, tc) {
 
 	ATF_CHECK(isc_file_exists(TAPFILE));
 
-	result = dns_dt_create(mctx, dns_dtmode_usocket, TAPSOCK, 1, &dtenv);
+	result = dns_dt_create(mctx, dns_dtmode_unix, TAPSOCK, 1, &dtenv);
 	ATF_CHECK_EQ(result, ISC_R_SUCCESS);
 	if (dtenv != NULL)
 		dns_dt_detach(&dtenv);

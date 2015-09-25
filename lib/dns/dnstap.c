@@ -189,7 +189,7 @@ dns_dt_create(isc_mem_t *mctx, dns_dtmode_t mode, const char *path,
 			fstrm_file_options_set_file_path(ffwopt, path);
 			fw = fstrm_file_writer_init(ffwopt, fwopt);
 		}
-	} else if (mode == dns_dtmode_usocket) {
+	} else if (mode == dns_dtmode_unix) {
 		fuwopt = fstrm_unix_writer_options_init();
 		if (fuwopt != NULL) {
 			fstrm_unix_writer_options_set_socket_path(fuwopt, path);
@@ -727,7 +727,7 @@ dns_dt_open(const char *filename, dns_dtmode_t mode, dns_dthandle_t *handle) {
 		if (!dnstap_file(handle->reader))
 			CHECK(DNS_R_BADDNSTAP);
 		break;
-	case dns_dtmode_usocket:
+	case dns_dtmode_unix:
 		return (ISC_R_NOTIMPLEMENTED);
 	default:
 		INSIST(0);

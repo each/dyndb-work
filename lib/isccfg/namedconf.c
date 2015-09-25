@@ -1226,7 +1226,7 @@ static cfg_type_t cfg_type_dnstap = {
 /*%
  * dnstap-output
  */
-static const char *dtoutmode_enums[] = { "usocket", "file", NULL };
+static const char *dtoutmode_enums[] = { "file", "unix", NULL };
 static cfg_type_t cfg_type_dtmode = {
 	"dtmode", cfg_parse_enum, cfg_print_ustring, cfg_doc_enum,
 	&cfg_rep_string, &dtoutmode_enums

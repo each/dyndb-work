@@ -4771,6 +4771,10 @@ badresp:1,adberr:0,findfail:0,valfail:0]
     <optional> hostname <replaceable>hostname_string</replaceable>; </optional>
     <optional> server-id <replaceable>server_id_string</replaceable>; </optional>
     <optional> directory <replaceable>path_name</replaceable>; </optional>
+    <optional> dnstap { <replaceable>message_type</replaceable>; ... }; </optional>
+    <optional> dnstap-output ( <literal>file</literal> | <literal>unix</literal> ) <replaceable>path_name</replaceable>; </optional>
+    <optional> dnstap-identity ( <replaceable>string</replaceable> | <literal>hostname</literal> | <literal>none</literal> ); </optional>
+    <optional> dnstap-version ( <replaceable>string</replaceable> | <literal>none</literal> ); </optional>
     <optional> geoip-directory <replaceable>path_name</replaceable>; </optional>
     <optional> key-directory <replaceable>path_name</replaceable>; </optional>
     <optional> managed-keys-directory <replaceable>path_name</replaceable>; </optional>
@@ -5237,23 +5241,25 @@ badresp:1,adberr:0,findfail:0,valfail:0]
 	  </varlistentry>
 
 	  <varlistentry>
-	    <term><command>dnstap-path</command></term>
+	    <term><command>dnstap-output</command></term>
 	    <listitem>
 	      <para>
-		The path to which <command>dnstap</command> messages
-		will be sent, if <command>dnstap</command> is enabled
-		at compile time and active. The specified path may
-		optionally be prefixed by the string "file:" or "socket:",
-		indicating that the path is a normal file or a
-		UNIX-domain socket.  If there is no prefix,
-		the path is assumed to be a UNIX-domain socket.
-		(Note: when using a socket, the <command>dnstap</command>
-		frame stream will only be sent if another process
-		such as <command>fstrm_capture</command>
-		is listening on the socket.)
+		Configures the path to which the <command>dnstap</command>
+		frame stream will be sent if <command>dnstap</command>
+		is enabled at compile time and active.
 	      </para>
 	      <para>
-		<command>dnstap-path</command> can only be set globally
+		The first argument is either <literal>file</literal> or
+		<literal>unix</literal>, indicating whether the destination
+		is a file or a UNIX domain socket.  The second argument
+		is the path of the file or socket.  (Note: when using a
+		socket, <command>dnstap</command> messages will
+		only be sent if another process such as
+		<command>fstrm_capture</command> is listening on
+		the socket.)
+	      </para>
+	      <para>
+		<command>dnstap-output</command> can only be set globally
 		in <command>options</command>. Currently, it can only be
 		set once while <command>named</command> is running;
 		once set, it cannot be changed by
@@ -5268,17 +5274,22 @@ badresp:1,adberr:0,findfail:0,valfail:0]
 	    <listitem>
 	      <para>
 		Specifies an <command>identity</command> string to send in
-		<command>dnstap</command> messages.
+		<command>dnstap</command> messages. If set to
+		<literal>hostname</literal>, which is the default, the
+		server's hostname will be sent. If set to
+		<literal>none</literal>, no identity string will be sent.
 	      </para>
 	    </listitem>
 	  </varlistentry>
 
 	  <varlistentry>
-	    <term><command>dnstap-identity</command></term>
+	    <term><command>dnstap-version</command></term>
 	    <listitem>
 	      <para>
 		Specifies a <command>version</command> string to send in
-		<command>dnstap</command> messages.
+		<command>dnstap</command> messages. The default is the
+		version number of the BIND release. If set to
+		<literal>none</literal>, no version string will be sent.
 	      </para>
 	    </listitem>
 	  </varlistentry>
